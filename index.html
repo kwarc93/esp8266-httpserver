@@ -8,7 +8,7 @@
 
 <body onload="show_picker()" style="background-color: black;">
     <iframe name="test" id="test" style="display: none;"></iframe>
-    <form id="send_color" action="/rgb" method="post" target="test">
+    <form id="send_color" action="/rgb" method="POST" target="test">
         <button id="picker" class="jscolor_button" data-jscolor=
         "{
             onChange: 'update(this)',
@@ -17,7 +17,12 @@
             mode:'HVS',
             crossSize: '16',
             value: '#000000',
-            backgroundColor: '#000000'}" style="display: none;">
+            backgroundColor: '#000000',
+            borderColor:'#000000',
+            borderWidth:'0', borderRadius:'0', 
+            padding:'0',
+            shadow:'false'
+        }" style="display: none;">
         </button>
         <input id="rgb1" name="rgb_color" type="hidden">
     </form>
@@ -32,8 +37,8 @@
         var padding = 30;
 
         picker.option("padding", padding)
-        picker.option("height", window.innerHeight - (2 * padding) - 10);
-        picker.option("width", window.innerWidth - (3 * padding + slider_size) - 10);
+        picker.option("height", window.innerHeight - (2 * padding) - 8);
+        picker.option("width", window.innerWidth - (3 * padding + slider_size) - 8);
         picker.show();
     }
 
@@ -41,7 +46,7 @@
     {
         document.getElementById("send_color").submit();
     }
-
+    
     jscolor.trigger('change');
 </script>
 

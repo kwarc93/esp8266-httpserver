@@ -125,25 +125,27 @@ def listen():
         try:
             c, a = _server.accept()
             conn = c.makefile("rwb")
+            conn.settimeout(10.0)
 
             # get start line
             start = conn.readline().decode('utf-8')
             _log("+S: ", start)
 
             # get headers
+            body_length = 0
             while True:
                 header = conn.readline().decode('utf-8')
                 if header == "\r\n" or header == "" or header == None:
                     break
+                if "Content-Length" in header:
+                    body_length = int("".join(list(filter(str.isdigit, header))))
                 _log("+H: ", header)
 
             #get body (if available)
-            conn.setblocking(False)
-            body = conn.read()
+            body = conn.read(body_length)
             body = body.decode('utf-8') if body else ""
-            conn.setblocking(True)
 
-            _log("+B: ", body)
+            _log("+B: ", body, body_length)
 
             start = start.split(" ")
             if len(start) != 3:

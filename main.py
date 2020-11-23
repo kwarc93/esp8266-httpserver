@@ -90,7 +90,7 @@ def handle_rgb(conn, body):
     set_led(r,g,b)
 
     headers = {"Connection": "close"}
-    conn.write(httpserver.create_header(headers, 200))
+    conn.write(httpserver.create_header(headers, 204))
 
     print("Free heap: ", gc.mem_free())
 
