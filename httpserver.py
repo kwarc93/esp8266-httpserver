@@ -1,0 +1,178 @@
+# -----------------------------------------------------------------------------
+# logging
+_log_enabled = False
+
+def _log(*args, **kwargs):
+
+    global _log_enabled
+    if not _log_enabled:
+        return
+    header = "[httpserver]"
+    print(header, *args, **kwargs, end="\r\n")
+
+# -----------------------------------------------------------------------------
+# initialization
+_server = None
+
+def init(ssid, pwd, enable_log = False):
+
+    import network
+    import socket
+
+    global _log_enabled
+    _log_enabled = enable_log
+
+    ap = network.WLAN(network.AP_IF)
+    ap.active(False)
+
+    sta = network.WLAN(network.STA_IF)
+    sta.active(True)
+
+    if not sta.isconnected():
+        _log("connecting to network...")
+        sta.connect(ssid, pwd)
+        while not sta.isconnected():
+            pass
+    _log("connected")
+    _log("network config: ", sta.ifconfig())
+
+    global _server
+    _server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    _server.bind(("", 80))
+    _server.listen(1)
+
+# -----------------------------------------------------------------------------
+# callbacks
+_callbacks = {}
+
+def register_callback(method, url, callback):
+
+    global _callbacks
+
+    if method not in _callbacks:
+        _callbacks[method] = {}
+    _callbacks[method][url] = callback
+
+def register_not_found_callback(callback):
+    register_callback("404", "404", callback)
+
+# -----------------------------------------------------------------------------
+# utils
+
+def create_header(headers, status):
+
+    header = "HTTP/1.1 " + str(status) + " OK\r\nServer: ESP8266, Micropython v1.12\r\n"
+    for name in headers:
+        header += name + ": " + headers[name] + "\r\n"
+    header += "\r\n"
+    return header
+    
+_hextobyte_cache = None
+
+def url_unquote(string):
+
+    """unquote('abc%20def') -> b'abc def'."""
+    global _hextobyte_cache
+
+    # Note: strings are encoded as UTF-8. This is only an issue if it contains
+    # unescaped non-ASCII characters, which URIs should not.
+    if not string:
+        return b''
+
+    if isinstance(string, str):
+        string = string.encode('utf-8')
+
+    bits = string.split(b'%')
+    if len(bits) == 1:
+        return string
+
+    res = [bits[0]]
+    append = res.append
+
+    # Build cache for hex to char mapping on-the-fly only for codes
+    # that are actually used
+    if _hextobyte_cache is None:
+        _hextobyte_cache = {}
+
+    for item in bits[1:]:
+        try:
+            code = item[:2]
+            char = _hextobyte_cache.get(code)
+            if char is None:
+                char = _hextobyte_cache[code] = bytes([int(code, 16)])
+            append(char)
+            append(item[2:])
+        except KeyError:
+            append(b'%')
+            append(item)
+
+    return b''.join(res)
+
+
+# -----------------------------------------------------------------------------
+# listening
+
+def listen():
+
+    import errno
+
+    global _server, _callbacks
+
+    _log("listening...")
+
+    while True:
+
+        try:
+            c, a = _server.accept()
+            conn = c.makefile("rwb")
+
+            # get start line
+            start = conn.readline().decode('utf-8')
+            _log("+S: ", start)
+
+            # get headers
+            while True:
+                header = conn.readline().decode('utf-8')
+                if header == "\r\n" or header == "" or header == None:
+                    break
+                _log("+H: ", header)
+
+            #get body (if available)
+            conn.setblocking(False)
+            body = conn.read()
+            body = body.decode('utf-8') if body else ""
+            conn.setblocking(True)
+
+            _log("+B: ", body)
+
+            start = start.split(" ")
+            if len(start) != 3:
+                start = None
+                header = None
+                body = None
+                conn.close()
+                continue
+
+            (method, url, version) = start
+
+            _log("method: ", method)
+            _log("url: ", url)
+            _log("version: ", version)
+
+            if method in _callbacks and url in _callbacks[method]:
+                _callbacks[method][url](conn, body)
+            else:
+                method = "404"
+                url = "404"
+                if method in _callbacks and url in _callbacks[method]:
+                    _callbacks[method][url](conn, body)
+
+            start = None
+            header = None
+            body = None
+            conn.close()
+        except OSError as e:
+            if e == errno.ECONNRESET or e == errno.ECONNABORTED or e == errno.ECONNREFUSED:
+                _log("socket error, closing connection")
+                conn.close()
+        
