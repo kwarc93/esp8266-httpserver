@@ -1,10 +1,8 @@
-
-print('---------- main.py started -----------')
-
 # -----------------------------------------------------------------------------
 # imports
 
 import os
+import re
 import httpserver
 import credentials
 from machine import Pin, PWM
@@ -42,8 +40,6 @@ pwm14 = PWM(Pin(14), freq=500, duty=0)
 
 def set_led(r, g, b):
 
-    global gamma_lut
-
     pwm12.duty(gamma_lut[r])
     pwm13.duty(gamma_lut[g])
     pwm14.duty(gamma_lut[b])
@@ -63,8 +59,6 @@ def read_file(file):
 
 def handle_main_page(conn, body):
 
-    global httpserver
-
     html_file = 'index.html'
 
     headers = {
@@ -77,9 +71,6 @@ def handle_main_page(conn, body):
     
 
 def handle_rgb(conn, body):
-
-    import re
-    global httpserver
 
     rgb_data = httpserver.url_unquote(body)
     regex = re.compile('(\w*rgb_color=rgb)\((\d+),(\d+),(\d+)\)')
@@ -98,14 +89,10 @@ def handle_rgb(conn, body):
 
 def handle_favicon(conn, body):
 
-    global httpserver
-
     headers = { 'Connection': 'close' }
     conn.write(httpserver.create_header(headers, 404))
 
 def handle_not_found(conn, body):
-
-    global httpserver
 
     html_file = '404.html'
 

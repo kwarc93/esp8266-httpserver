@@ -1,10 +1,16 @@
 # -----------------------------------------------------------------------------
+# imports
+
+import gc
+import network
+import socket
+
+# -----------------------------------------------------------------------------
 # logging
 _log_enabled = False
 
 def _log(*args, **kwargs):
 
-    global _log_enabled
     if not _log_enabled:
         return
     header = '[httpserver]'
@@ -16,13 +22,11 @@ _server = None
 
 def init(ssid, pwd, enable_log = False):
 
-    import network
-    import socket
-
     global _log_enabled
     _log_enabled = enable_log
 
     sta = network.WLAN(network.STA_IF)
+    sta.config(dhcp_hostname = 'rgb')
     sta.active(True)
 
     if not sta.isconnected():
@@ -115,8 +119,8 @@ def url_unquote(string):
 
 def listen():
 
-    global _server, _callbacks
-
+    global _server
+    
     _log('listening...')
 
     while True:
@@ -163,7 +167,6 @@ def listen():
         except OSError as e:
             _log('OSError:', e)
         finally:
-            import gc
             _log('closing connection')
             _log('free heap: ', gc.mem_free())
             conn.close()
