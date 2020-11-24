@@ -1,2 +1,2 @@
 # esp8266-httpserver
-Simple http server written in MicroPython running on ESP8266
+Simple HTTP server written in MicroPython running on ESP8266 Allows controlling RGB LED through HTML page.
