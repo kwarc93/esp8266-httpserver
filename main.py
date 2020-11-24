@@ -1,5 +1,5 @@
 
-print('-----------main.py started------------')
+print('---------- main.py started -----------')
 
 # -----------------------------------------------------------------------------
 # imports
@@ -33,12 +33,9 @@ gamma_lut = (
    906, 914, 921, 929, 937, 944, 952, 960, 968, 975, 983, 991, 999,1007,1015,1023
 )
 
-r_gpio = 12
-g_gpio = 13
-b_gpio = 14
-pwm12 = PWM(Pin(r_gpio), freq=500, duty=0)
-pwm13 = PWM(Pin(g_gpio), freq=500, duty=0)
-pwm14 = PWM(Pin(b_gpio), freq=500, duty=0)
+pwm12 = PWM(Pin(12), freq=500, duty=0)
+pwm13 = PWM(Pin(13), freq=500, duty=0)
+pwm14 = PWM(Pin(14), freq=500, duty=0)
 
 # -----------------------------------------------------------------------------
 # helpers
@@ -46,10 +43,12 @@ pwm14 = PWM(Pin(b_gpio), freq=500, duty=0)
 def set_led(r, g, b):
 
     global gamma_lut
+
     pwm12.duty(gamma_lut[r])
     pwm13.duty(gamma_lut[g])
     pwm14.duty(gamma_lut[b])
-    print('RGB: ',r,g,b)
+    
+    print('RGB:',r,g,b)
 
 def read_file(file):
 

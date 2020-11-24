@@ -22,9 +22,6 @@ def init(ssid, pwd, enable_log = False):
     global _log_enabled
     _log_enabled = enable_log
 
-    ap = network.WLAN(network.AP_IF)
-    ap.active(False)
-
     sta = network.WLAN(network.STA_IF)
     sta.active(True)
 
@@ -61,11 +58,13 @@ def register_not_found_callback(callback):
 
 def create_header(headers, status):
 
+    colon = ': '
+    lend = '\r\n'
     header = 'HTTP/1.1 ' + str(status) + ' OK\r\nServer: ESP8266, Micropython v1.12\r\n'
     
     for name in headers:
-        header += name + ': ' + headers[name] + '\r\n'
-    header += '\r\n'
+        header += name + colon + headers[name] + lend
+    header += lend
 
     return header
     
@@ -123,33 +122,27 @@ def listen():
     while True:
 
         try:
-            c, a = _server.accept()
-            _log('client connected, address:', a)
+            conn, addr = _server.accept()
+            _log('client connected, address:', addr)
 
-            conn = c.makefile('rwb')
             conn.settimeout(10.0)
 
             # get start line
-            start = conn.readline().decode('utf-8')
-            _log('+S: ', start)
+            start = conn.readline()
 
             # get headers
             body_length = 0
             while True:
-                header = conn.readline().decode('utf-8')
-                if header == '\r\n' or header == '' or header == None:
+                header = conn.readline()
+                if header == b'\r\n' or header == b'' or header == None:
                     break
-                if 'Content-Length' in header:
-                    body_length = int(''.join(list(filter(str.isdigit, header))))
-                _log('+H: ', header)
+                if b'Content-Length' in header:
+                    body_length = int(''.join(list(filter(str.isdigit, header.decode()))))
 
             #get body (if available)
             body = conn.read(body_length)
-            body = body.decode('utf-8') if body else ''
 
-            _log('+B: ', body, body_length)
-
-            start = start.split(' ')
+            start = start.decode().split(' ')
             if len(start) != 3:
                 continue
 
@@ -158,18 +151,20 @@ def listen():
             _log('method: ', method)
             _log('url: ', url)
             _log('version: ', version)
+            _log('body: ', body, body_length)
 
             if method in _callbacks and url in _callbacks[method]:
                 _callbacks[method][url](conn, body)
+            elif '404' in _callbacks and '404' in _callbacks['404']:
+                _callbacks['404']['404'](conn, body)
             else:
-                method = '404'
-                url = '404'
-                if method in _callbacks and url in _callbacks[method]:
-                    _callbacks[method][url](conn, body)
+                _log('no handler for request')
 
         except OSError as e:
             _log('OSError:', e)
         finally:
+            import gc
             _log('closing connection')
+            _log('free heap: ', gc.mem_free())
             conn.close()
         
