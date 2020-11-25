@@ -1,4 +1,5 @@
 import math
+import time
 from machine import Pin, PWM
 from neopixel import NeoPixel
 
@@ -72,23 +73,20 @@ def set(r, g, b):
 # -----------------------------------------------------------------------------
 # RGB LED strip
 
-_leds_in_strip = 0
 _led_strip_drv = None
 
 def strip_init(pin, leds):
 
-    global _leds_in_strip
     global _led_strip_drv
 
-    _leds_in_strip = leds
-    _led_strip_drv = NeoPixel(Pin(pin, Pin.OUT), _leds_in_strip)
+    _led_strip_drv = NeoPixel(Pin(pin, Pin.OUT), leds)
 
 def strip_set(r, g, b):
 
     global _led_strip_drv
 
     gamma = gamma_lut_8b
-    for led in range(_leds_in_strip):
+    for led in range(_led_strip_drv.n):
         _led_strip_drv[led] = (gamma[r], gamma[g], gamma[b])
     _led_strip_drv.write()
 
@@ -102,14 +100,20 @@ def _hsv2rgb(h, s, v):
 
     return (int(f(5) * 255), int(f(3) * 255), int(f(1) * 255))
 
-def strip_rainbow():
+def strip_rainbow(loop):
 
     global _led_strip_drv
 
     gamma = gamma_lut_8b
-    hsv_step = 360 / _leds_in_strip
-    for led in range(_leds_in_strip):
-        avg_hue = hsv_step * (2 * led + 1) / 2
+    hue_step = 360 / _led_strip_drv.n
+    hue_offset = 0
+    leds = range(_led_strip_drv.n)
+    
+    # while loop:
+    for led in leds:
+        avg_hue = (hue_offset + hue_step * (2 * led + 1) / 2) % 360
         (r, g, b) = _hsv2rgb(avg_hue, 1.0, 1.0)
         _led_strip_drv[led] = (gamma[r], gamma[g], gamma[b])
     _led_strip_drv.write()
+    hue_offset += 1
+    # time.sleep_ms(2)

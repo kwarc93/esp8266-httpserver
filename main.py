@@ -72,8 +72,10 @@ def handle_not_found(conn, body):
 # -----------------------------------------------------------------------------
 # 'main'
 
+print("--- main.py ---")
+
 rgbled.strip_init(5, 60)
-rgbled.strip_rainbow()
+rgbled.strip_rainbow(True)
 
 httpserver.init(credentials.ssid, credentials.pwd, True)
 
