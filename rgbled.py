@@ -83,12 +83,13 @@ def strip_init(pin, leds):
 
 def strip_set(r, g, b):
 
-    global _led_strip_drv
-
+    drv = _led_strip_drv
     gamma = gamma_lut_8b
-    for led in range(_led_strip_drv.n):
-        _led_strip_drv[led] = (gamma[r], gamma[g], gamma[b])
-    _led_strip_drv.write()
+    leds = range(drv.n)
+
+    for led in leds:
+        drv[led] = (gamma[r], gamma[g], gamma[b])
+    drv.write()
 
 def _hsv2rgb(h, s, v):
 
@@ -100,20 +101,15 @@ def _hsv2rgb(h, s, v):
 
     return (int(f(5) * 255), int(f(3) * 255), int(f(1) * 255))
 
-def strip_rainbow(loop):
+def strip_rainbow():
 
-    global _led_strip_drv
-
+    drv = _led_strip_drv
     gamma = gamma_lut_8b
-    hue_step = 360 / _led_strip_drv.n
-    hue_offset = 0
-    leds = range(_led_strip_drv.n)
+    hue_step = 360 / drv.n
+    leds = range(drv.n)
     
-    # while loop:
     for led in leds:
-        avg_hue = (hue_offset + hue_step * (2 * led + 1) / 2) % 360
+        avg_hue = hue_step * (2 * led + 1) / 2
         (r, g, b) = _hsv2rgb(avg_hue, 1.0, 1.0)
-        _led_strip_drv[led] = (gamma[r], gamma[g], gamma[b])
-    _led_strip_drv.write()
-    hue_offset += 1
-    # time.sleep_ms(2)
+        drv[led] = (gamma[r], gamma[g], gamma[b])
+    drv.write()
