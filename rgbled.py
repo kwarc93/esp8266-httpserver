@@ -113,3 +113,28 @@ def strip_rainbow():
         (r, g, b) = _hsv2rgb(avg_hue, 1.0, 1.0)
         drv[led] = (gamma[r], gamma[g], gamma[b])
     drv.write()
+
+def strip_breathe():
+
+    drv = _led_strip_drv
+    gamma = gamma_lut_8b
+    steps = range(0, 128)
+    leds = range(0, drv.n * 3, 3)
+    color = bytearray(3)
+
+    for step in steps:
+        for led in leds:
+            color[1] = gamma[step]
+            color[0] = gamma[step]
+            color[2] = gamma[step]
+            drv.buf[led : led + 3] = color
+        drv.write()
+
+    steps = reversed(steps)
+    for step in steps:
+        for led in leds:
+            color[1] = gamma[step]
+            color[0] = gamma[step]
+            color[2] = gamma[step]
+            drv.buf[led : led + 3] = color
+        drv.write()
