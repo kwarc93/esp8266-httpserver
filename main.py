@@ -36,19 +36,19 @@ def handle_main_page(conn, body):
 
 def handle_rgb(conn, body):
 
-    rgb_data = httpserver.url_unquote(body)
-    regex = re.compile('(\w*rgb_color=rgb)\((\d+),(\d+),(\d+)\)')
-    regex = regex.match(rgb_data)
+    regex = re.compile('(rgb)\((\d+), (\d+), (\d+)\)')
+    regex = regex.match(body)
 
     r = int(regex.group(2))
     g = int(regex.group(3))
     b = int(regex.group(4))
     # rgbled.set(r,g,b)
-    rgbled.strip_set(r, g, b)
+    # rgbled.strip_set(r, g, b)
+    rgbled.strip_set_smooth(r, g, b)
 
     headers = {
         'Connection': 'close',
-        'ETag': '\"' + str(rgb_data) + '\"'
+        'ETag': '\"' + str(body) + '\"'
     }
     conn.write(httpserver.create_header(headers, 204))
 
@@ -75,7 +75,6 @@ def handle_not_found(conn, body):
 print("--- main.py ---")
 
 rgbled.strip_init(5, 60)
-rgbled.strip_breathe()
 rgbled.strip_rainbow()
 
 httpserver.init(credentials.ssid, credentials.pwd, True)

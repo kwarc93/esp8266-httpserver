@@ -36,6 +36,7 @@ def set(r, g, b):
 # RGB LED strip
 
 _led_strip_drv = None
+_led_strip_color = bytearray(3)
 
 def strip_init(pin, leds):
 
@@ -67,8 +68,9 @@ def strip_rainbow():
 
     drv = _led_strip_drv
     cie = cie_lut_8b
-    hue_step = 360 / drv.n
     leds = range(drv.n)
+    
+    hue_step = 360 / drv.n
     
     for led in leds:
         avg_hue = hue_step * (2 * led + 1) / 2
@@ -76,27 +78,37 @@ def strip_rainbow():
         drv[led] = (cie[r], cie[g], cie[b])
     drv.write()
 
-def strip_breathe():
+def strip_set_smooth(r, g, b):
 
     drv = _led_strip_drv
     cie = cie_lut_8b
-    steps = range(0, 256)
-    leds = range(0, drv.n * 3, 3)
+    leds = range(drv.n)
+
+    global _led_strip_color
+    prev_color = _led_strip_color
+    new_color = bytearray((g, r, b))
+
+    if new_color == prev_color:
+        return
+
+    diff = (new_color[0] - prev_color[0], new_color[1] - prev_color[1], new_color[2] - prev_color[2])
+    length = math.sqrt(diff[0] ** 2 + diff[1] ** 2 + diff[2] ** 2)
+    
+    cosb_sina = diff[0] / length
+    cosb_cosa = diff[1] / length
+    sinb = diff[2] / length
+
     color = bytearray(3)
-
+    steps = range(0, int(round(length)) + 1)
     for step in steps:
+        new_color[0] = int(prev_color[0] + round(step * cosb_sina))
+        new_color[1] = int(prev_color[1] + round(step * cosb_cosa))
+        new_color[2] = int(prev_color[2] + round(step * sinb))
+        color[0] = cie[new_color[0]]
+        color[1] = cie[new_color[1]]
+        color[2] = cie[new_color[2]]
         for led in leds:
-            color[1] = cie[step]
-            color[0] = cie[step]
-            color[2] = cie[step]
+            led *= 3
             drv.buf[led : led + 3] = color
         drv.write()
-
-    steps = reversed(steps)
-    for step in steps:
-        for led in leds:
-            color[1] = cie[step]
-            color[0] = cie[step]
-            color[2] = cie[step]
-            drv.buf[led : led + 3] = color
-        drv.write()
+    _led_strip_color = new_color

@@ -158,9 +158,9 @@ def listen():
             _log('body: ', body, body_length)
 
             if method in _callbacks and url in _callbacks[method]:
-                _callbacks[method][url](conn, body)
+                _callbacks[method][url](conn, body.decode('utf-8'))
             elif '404' in _callbacks and '404' in _callbacks['404']:
-                _callbacks['404']['404'](conn, body)
+                _callbacks['404']['404'](conn, body.decode('utf-8'))
             else:
                 _log('no handler for request')
 
