@@ -40,7 +40,7 @@ def init(ssid, pwd, enable_log = False):
     global _server
     _server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     _server.bind(socket.getaddrinfo('0.0.0.0', 80)[0][-1])
-    _server.listen(1)
+    _server.listen(3)
 
 # -----------------------------------------------------------------------------
 # callbacks

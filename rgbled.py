@@ -103,7 +103,7 @@ def strip_set_smooth(r, g, b):
     sinb = diff[2] / length
 
     color = bytearray(3)
-    steps = range(0, int(round(length)) + 1)
+    steps = range(1, int(round(length)) + 1)
     for step in steps:
         new_color[0] = int(prev_color[0] + round(step * cosb_sina))
         new_color[1] = int(prev_color[1] + round(step * cosb_cosa))
