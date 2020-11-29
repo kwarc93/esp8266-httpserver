@@ -7,8 +7,8 @@ from neopixel import NeoPixel
 # -----------------------------------------------------------------------------
 # CIE 1931 LUTs
 
-cie_lut_10b = pwm_lightness.get_pwm_table(1023, 255)
-cie_lut_8b = pwm_lightness.get_pwm_table(255, 255)
+_cie_lut_10b = None
+_cie_lut_8b = None
 
 # -----------------------------------------------------------------------------
 # RGB PWM LED
@@ -19,7 +19,9 @@ _bpwm = None
 
 def init(rpin, gpin, bpin):
 
-    global _rpwm, _gpwm, _bpwm
+    global _rpwm, _gpwm, _bpwm, _cie_lut_10b
+
+    _cie_lut_10b = pwm_lightness.get_pwm_table(1023, 255)
     
     _rpwm = PWM(Pin(rpin), freq=500, duty=0)
     _gpwm = PWM(Pin(gpin), freq=500, duty=0)
@@ -27,7 +29,7 @@ def init(rpin, gpin, bpin):
 
 def set(r, g, b):
 
-    cie = cie_lut_10b
+    cie = _cie_lut_10b
     _rpwm.duty(cie[r])
     _gpwm.duty(cie[g])
     _bpwm.duty(cie[b])
@@ -40,14 +42,16 @@ _led_strip_color = bytearray(3)
 
 def strip_init(pin, leds):
 
-    global _led_strip_drv
+    global _led_strip_drv, _cie_lut_8b
+
+    _cie_lut_8b = pwm_lightness.get_pwm_table(255, 255)
 
     _led_strip_drv = NeoPixel(Pin(pin, Pin.OUT), leds)
 
 def strip_set(r, g, b):
 
     drv = _led_strip_drv
-    cie = cie_lut_8b
+    cie = _cie_lut_8b
     leds = range(drv.n)
 
     for led in leds:
@@ -67,7 +71,7 @@ def _hsv2rgb(h, s, v):
 def strip_rainbow():
 
     drv = _led_strip_drv
-    cie = cie_lut_8b
+    cie = _cie_lut_8b
     leds = range(drv.n)
     
     hue_step = 360 / drv.n
@@ -81,7 +85,7 @@ def strip_rainbow():
 def strip_set_smooth(r, g, b):
 
     drv = _led_strip_drv
-    cie = cie_lut_8b
+    cie = _cie_lut_8b
     leds = range(drv.n)
 
     global _led_strip_color
