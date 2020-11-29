@@ -25,35 +25,33 @@
 </body>
 
 <script type="text/javascript">
-    function calculate_picker_size()
+    function calculate_picker_look()
     {
         var orientation = (screen.orientation || {}).type || screen.mozOrientation || screen.msOrientation;
-        console.log(orientation);
         
         if (orientation === "landscape-primary" || orientation === "landscape-secondary") 
         {
-            var size = window.innerHeight - 0.2 * window.innerHeight;
-            return size;
+            var width = window.innerWidth - 0.6 * window.innerWidth;
+            return [width, "horizontal"];
         }
         else if (orientation === "portrait-primary" || orientation === "portrait-secondary")
         {
-            var size = window.innerWidth - 0.2 * window.innerWidth;
-            return size;
+            var width = window.innerWidth - 0.2 * window.innerWidth;
+            return [width, "vertical"];
         }
         else if (orientation === undefined)
         {
-            return undefined;
+            return [undefined, undefined];
         }
     }
-
-    var picker_size = calculate_picker_size();
-    console.log(picker_size);
-
+    
+    var picker_look = calculate_picker_look();
     var colorPicker = new iro.ColorPicker("#picker",
     {
-        width: calculate_picker_size(),
+        width: picker_look[0],
+        layoutDirection: picker_look[1],
         borderWidth: 2,
-        borderColor: '#f0f0f0',
+        borderColor: "#f0f0f0",
         wheelLightness: false, 
         margin: 50
     });
@@ -67,10 +65,13 @@
         xhr.send(color.rgbString);
     });
 
-    screen.addEventListener("orientationchange",
+    window.addEventListener("orientationchange",
     function ()
     {
-        colorPicker.resize(calculate_picker_size())
+        var width_and_layout = calculate_picker_look()
+        colorPicker.state.width = width_and_layout[0];
+        colorPicker.state.layoutDirection = width_and_layout[1];
+        colorPicker.forceUpdate();
     });
 </script>
 </html>
