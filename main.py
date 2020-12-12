@@ -7,6 +7,8 @@ import httpserver
 import credentials
 import rgbled
 
+from machine import Pin
+
 # -----------------------------------------------------------------------------
 # helpers
 
@@ -86,7 +88,15 @@ def handle_not_found(conn, body):
 
 print("--- main.py ---")
 
-rgbled.strip_init(5, 60)
+green_led = Pin(4, Pin.OUT)
+green_led.off()
+
+io12 = Pin(12, Pin.OUT)
+io13 = Pin(13, Pin.OUT)
+io12.on()
+io13.on()
+
+rgbled.strip_init(14, 60)
 
 httpserver.init(credentials.ssid, credentials.pwd, True)
 
@@ -95,5 +105,7 @@ httpserver.register_callback('GET', '/favicon.ico', handle_favicon)
 httpserver.register_callback('GET', '/rainbow', handle_rainbow)
 httpserver.register_callback('POST', '/rgb', handle_rgb)
 httpserver.register_not_found_callback(handle_not_found)
+
+green_led.on()
 
 httpserver.listen()

@@ -25,8 +25,12 @@ def init(ssid, pwd, enable_log = False):
     global _log_enabled
     _log_enabled = enable_log
 
+    ap = network.WLAN(network.AP_IF)
+    ap.active(False)
+
     sta = network.WLAN(network.STA_IF)
-    sta.config(dhcp_hostname = 'rgb')
+    sta.config(dhcp_hostname = 'wifirgb')
+    _log(sta.config('dhcp_hostname'))
     sta.active(True)
 
     if not sta.isconnected():
