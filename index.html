@@ -25,7 +25,7 @@
 </body>
 
 <script type="text/javascript">
-    function calculate_picker_look()
+    function calcPickerLook()
     {
         var orientation = (screen.orientation || {}).type || screen.mozOrientation || screen.msOrientation;
         
@@ -45,33 +45,39 @@
         }
     }
     
-    var picker_look = calculate_picker_look();
+    var pickerLook = calcPickerLook();
     var colorPicker = new iro.ColorPicker("#picker",
     {
-        width: picker_look[0],
-        layoutDirection: picker_look[1],
+        width: pickerLook[0],
+        layoutDirection: pickerLook[1],
         borderWidth: 2,
         borderColor: "#f0f0f0",
         wheelLightness: false, 
         margin: 50
     });
 
-    colorPicker.on('input:end',
+    colorPicker.on("input:end",
     function(color)
     {
-        var xhr = new XMLHttpRequest();
+        let xhr = new XMLHttpRequest();
         xhr.open("POST", "/rgb", true);
-        xhr.setRequestHeader('Content-Type', 'text/plain');
-        xhr.send(color.rgbString);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.send(JSON.stringify(color.rgb));
     });
 
     window.addEventListener("orientationchange",
     function ()
     {
-        var width_and_layout = calculate_picker_look()
-        colorPicker.state.width = width_and_layout[0];
-        colorPicker.state.layoutDirection = width_and_layout[1];
+        let widthAndLayout = calcPickerLook()
+        colorPicker.state.width = widthAndLayout[0];
+        colorPicker.state.layoutDirection = widthAndLayout[1];
         colorPicker.forceUpdate();
     });
+
+    let xhr = new XMLHttpRequest();
+    xhr.open("GET", "/rgb");
+    xhr.responseType = "json";
+    xhr.onload = function() { colorPicker.color.set(xhr.response); };
+    xhr.send();
 </script>
 </html>

@@ -68,7 +68,7 @@ def create_header(headers, status):
 
     colon = ': '
     lend = '\r\n'
-    header = 'HTTP/1.1 ' + str(status) + ' OK\r\nServer: ESP8266, Micropython v1.12\r\n'
+    header = 'HTTP/1.1 ' + str(status) + ' OK\r\nServer: ESP8266, Micropython v1.13\r\n'
     
     for name in headers:
         header += name + colon + headers[name] + lend

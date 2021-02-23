@@ -2,7 +2,7 @@
 # imports
 
 import os
-import re
+import json
 import httpserver
 import credentials
 import rgbled
@@ -35,8 +35,20 @@ def handle_main_page(conn, body):
     conn.write(httpserver.create_header(headers, 200))
     conn.write(read_file(html_file))
     
+def handle_get_rgb(conn, body):
 
-def handle_rgb(conn, body):
+    rgb = rgbled.strip_get()
+    json_str = json.dumps({'r':rgb[1],'g':rgb[0],'b':rgb[2]})
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Content-Length': str(len(json_str)),
+        'Connection': 'close'
+    }
+    conn.write(httpserver.create_header(headers, 200))
+    conn.write(json_str)
+
+def handle_post_rgb(conn, body):
 
     headers = {
         'Connection': 'close',
@@ -44,13 +56,8 @@ def handle_rgb(conn, body):
     }
     conn.write(httpserver.create_header(headers, 204))
 
-    regex = re.compile('(rgb)\((\d+), (\d+), (\d+)\)')
-    regex = regex.match(body)
-
-    r = int(regex.group(2))
-    g = int(regex.group(3))
-    b = int(regex.group(4))
-    rgbled.strip_set_smooth(r, g, b)
+    json_rgb = json.loads(body)
+    rgbled.strip_set_smooth(json_rgb['r'], json_rgb['g'], json_rgb['b'])
 
 def handle_rainbow(conn, body):
 
@@ -103,7 +110,8 @@ httpserver.init(credentials.ssid, credentials.pwd, True)
 httpserver.register_callback('GET', '/', handle_main_page)
 httpserver.register_callback('GET', '/favicon.ico', handle_favicon)
 httpserver.register_callback('GET', '/rainbow', handle_rainbow)
-httpserver.register_callback('POST', '/rgb', handle_rgb)
+httpserver.register_callback('GET', '/rgb', handle_get_rgb)
+httpserver.register_callback('POST', '/rgb', handle_post_rgb)
 httpserver.register_not_found_callback(handle_not_found)
 
 green_led.on()

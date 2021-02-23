@@ -58,6 +58,9 @@ def strip_set(r, g, b):
         drv[led] = (cie[r], cie[g], cie[b])
     drv.write()
 
+def strip_get():
+    return _led_strip_color
+
 def _hsv2rgb(h, s, v):
 
     if h > 360.0 or h < 0.0 or s > 1.0 or s < 0.0 or v > 1.0 or v < 0.0:
