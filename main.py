@@ -75,8 +75,15 @@ def handle_rainbow(conn, body):
 
 def handle_favicon(conn, body):
 
-    headers = { 'Connection': 'close' }
-    conn.write(httpserver.create_header(headers, 404))
+    ico_file = 'favicon.ico'
+
+    headers = {
+        'Content-Type': 'image/x-icon',
+        'Content-Length': str(os.stat(ico_file)[6]),
+        'Connection': 'close'
+    }
+    conn.write(httpserver.create_header(headers, 200))
+    conn.write(read_file(ico_file))
 
 def handle_not_found(conn, body):
 
@@ -89,6 +96,13 @@ def handle_not_found(conn, body):
     }
     conn.write(httpserver.create_header(headers, 404))
     conn.write(read_file(html_file))
+
+def handle_unauthorized(conn, body):
+
+    headers = {
+        'WWW-Authenticate': 'Basic realm="general", charset="UTF-8"'
+    }
+    conn.write(httpserver.create_header(headers, 401))
 
 # -----------------------------------------------------------------------------
 # 'main'
@@ -103,16 +117,20 @@ io13 = Pin(13, Pin.OUT)
 io12.on()
 io13.on()
 
+# 60 LEDs on pin 14
 rgbled.strip_init(14, 60)
 
-httpserver.init(credentials.ssid, credentials.pwd, True)
+httpserver.init(credentials.wifi_ssid, credentials.wifi_pwd)
+httpserver.enable_basic_auth(credentials.usr_name, credentials.usr_pwd)
 
 httpserver.register_callback('GET', '/', handle_main_page)
 httpserver.register_callback('GET', '/favicon.ico', handle_favicon)
 httpserver.register_callback('GET', '/rainbow', handle_rainbow)
 httpserver.register_callback('GET', '/rgb', handle_get_rgb)
 httpserver.register_callback('POST', '/rgb', handle_post_rgb)
+
 httpserver.register_not_found_callback(handle_not_found)
+httpserver.register_unauthorized_callback(handle_unauthorized)
 
 green_led.on()
 
