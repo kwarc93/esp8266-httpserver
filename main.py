@@ -3,6 +3,7 @@
 
 import os
 import json
+import uasyncio
 import httpserver
 import credentials
 import rgbled
@@ -38,7 +39,7 @@ def handle_main_page(conn, body):
 def handle_get_rgb(conn, body):
 
     rgb = rgbled.strip_get()
-    json_str = json.dumps({'r':rgb[1],'g':rgb[0],'b':rgb[2]})
+    json_str = json.dumps({'r':rgb[0],'g':rgb[1],'b':rgb[2]})
 
     headers = {
         'Content-Type': 'application/json',
@@ -107,31 +108,48 @@ def handle_unauthorized(conn, body):
 # -----------------------------------------------------------------------------
 # 'main'
 
-print("--- main.py ---")
+async def blink():
+    green_led = Pin(4, Pin.OUT)
+    green_led.off()
 
-green_led = Pin(4, Pin.OUT)
-green_led.off()
+    while True:
+        green_led.on()
+        await uasyncio.sleep_ms(500)
+        green_led.off()
+        await uasyncio.sleep_ms(500)
 
-io12 = Pin(12, Pin.OUT)
-io13 = Pin(13, Pin.OUT)
-io12.on()
-io13.on()
+async def main():
+    print("--- main.py ---")
 
-# 60 LEDs on pin 14
-rgbled.strip_init(14, 60)
+    # set unused IO
+    io12 = Pin(12, Pin.OUT)
+    io13 = Pin(13, Pin.OUT)
+    io12.on()
+    io13.on()
 
-httpserver.init(credentials.wifi_ssid, credentials.wifi_pwd)
-httpserver.enable_basic_auth(credentials.usr_name, credentials.usr_pwd)
+    # LED strip with 60 LEDs on pin 14
+    rgbled.strip_init(14, 60)
 
-httpserver.register_callback('GET', '/', handle_main_page)
-httpserver.register_callback('GET', '/favicon.ico', handle_favicon)
-httpserver.register_callback('GET', '/rainbow', handle_rainbow)
-httpserver.register_callback('GET', '/rgb', handle_get_rgb)
-httpserver.register_callback('POST', '/rgb', handle_post_rgb)
+    httpserver.init(credentials.wifi_ssid, credentials.wifi_pwd)
+    httpserver.enable_basic_auth(credentials.usr_name, credentials.usr_pwd)
 
-httpserver.register_not_found_callback(handle_not_found)
-httpserver.register_unauthorized_callback(handle_unauthorized)
+    httpserver.register_callback('GET', '/', handle_main_page)
+    httpserver.register_callback('GET', '/favicon.ico', handle_favicon)
+    httpserver.register_callback('GET', '/rainbow', handle_rainbow)
+    httpserver.register_callback('GET', '/rgb', handle_get_rgb)
+    httpserver.register_callback('POST', '/rgb', handle_post_rgb)
 
-green_led.on()
+    httpserver.register_not_found_callback(handle_not_found)
+    httpserver.register_unauthorized_callback(handle_unauthorized)
 
-httpserver.listen()
+    # httpserver.listen()
+    uasyncio.create_task(uasyncio.start_server(httpserver.conn_handler, '0.0.0.0', 80))
+    uasyncio.create_task(blink())
+    # uasyncio.create_task(httpserver.listen())
+
+    while True:
+        await uasyncio.sleep(1)
+    # httpserver.listen()
+
+# Start the whole thing
+uasyncio.run(main())

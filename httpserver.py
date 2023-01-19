@@ -6,10 +6,11 @@ import os
 import network
 import socket
 import binascii
+import uasyncio
 
 # -----------------------------------------------------------------------------
 # logging
-_log_enabled = False
+_log_enabled = True
 
 def _log(*args, **kwargs):
 
@@ -21,6 +22,7 @@ def _log(*args, **kwargs):
 # -----------------------------------------------------------------------------
 # initialization
 _server = None
+_server_ip = None
 
 def init(wifi_ssid, wifi_pwd):
 
@@ -37,13 +39,10 @@ def init(wifi_ssid, wifi_pwd):
         sta.connect(wifi_ssid, wifi_pwd)
         while not sta.isconnected():
             pass
+    global _server_ip
+    _server_ip = sta.ifconfig()[0]
     _log('connected')
     _log('network config: ', sta.ifconfig())
-
-    global _server
-    _server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    _server.bind(socket.getaddrinfo('0.0.0.0', 80)[0][-1])
-    _server.listen(3)
 
 # -----------------------------------------------------------------------------
 # authentication
@@ -114,68 +113,77 @@ def create_header(headers, status):
 # -----------------------------------------------------------------------------
 # listening
 
-def listen():
+async def conn_handler(reader, writer):
+    try:
+        addr = writer.get_extra_info('peername')
+        _log('client connected, address:', addr)
 
-    global _server
-    
-    _log('listening...')
+        # conn.settimeout(10.0)
 
-    while True:
+        # if basic authentication is enabled dont accept clients without credentials 
+        authorized = not _basic_auth_enabled
 
-        try:
-            conn, addr = _server.accept()
-            _log('client connected, address:', addr)
+        # get start line
+        start = await reader.readline()
 
-            conn.settimeout(10.0)
+        # get headers
+        body_length = 0
+        while True:
+            header = await reader.readline()
+            if header == b'\r\n' or header == b'' or header == None:
+                break
+            if b'Content-Length' in header:
+                body_length = int(''.join(list(filter(str.isdigit, header.decode()))))
+            if b'Authorization' in header:
+                authorized = _authenticate(header.decode())
 
-            # if basic authentication is enabled dont accept clients without credentials 
-            authorized = not _basic_auth_enabled
+        #get body (if available)
+        body = await reader.readexactly(body_length)
 
-            # get start line
-            start = conn.readline()
+        start = start.decode().split(' ')
+        if len(start) != 3:
+            await writer.wait_closed()
+            return
 
-            # get headers
-            body_length = 0
-            while True:
-                header = conn.readline()
-                if header == b'\r\n' or header == b'' or header == None:
-                    break
-                if b'Content-Length' in header:
-                    body_length = int(''.join(list(filter(str.isdigit, header.decode()))))
-                if b'Authorization' in header:
-                    authorized = _authenticate(header.decode())
+        (method, url, version) = start
 
-            #get body (if available)
-            body = conn.read(body_length)
+        _log('method: ', method)
+        _log('url: ', url)
+        _log('version: ', version)
+        _log('body: ', body, body_length)
 
-            start = start.decode().split(' ')
-            if len(start) != 3:
-                continue
+        if not authorized:
+            if '401' in _callbacks and '401' in _callbacks['401']:
+                _callbacks['401']['401'](writer, body.decode('utf-8'))
+            _log('unauthorized')
+            await writer.drain()
+            await writer.wait_closed()
+            return
 
-            (method, url, version) = start
+        if method in _callbacks and url in _callbacks[method]:
+            _callbacks[method][url](writer, body.decode('utf-8'))
+        elif '404' in _callbacks and '404' in _callbacks['404']:
+            _callbacks['404']['404'](writer, body.decode('utf-8'))
+        else:
+            _log('no handler for request')
 
-            _log('method: ', method)
-            _log('url: ', url)
-            _log('version: ', version)
-            _log('body: ', body, body_length)
+    except OSError as e:
+        _log('OSError:', e)
+    finally:
+        _log('closing connection')
+        _log('free heap: ', gc.mem_free())
+        await writer.drain()
+        await writer.wait_closed()
 
-            if not authorized:
-                if '401' in _callbacks and '401' in _callbacks['401']:
-                    _callbacks['401']['401'](conn, body.decode('utf-8'))
-                _log('unauthorized')
-                continue
+# async def listen():
 
-            if method in _callbacks and url in _callbacks[method]:
-                _callbacks[method][url](conn, body.decode('utf-8'))
-            elif '404' in _callbacks and '404' in _callbacks['404']:
-                _callbacks['404']['404'](conn, body.decode('utf-8'))
-            else:
-                _log('no handler for request')
+    # global _server
+    # global _server_ip
 
-        except OSError as e:
-            _log('OSError:', e)
-        finally:
-            _log('closing connection')
-            _log('free heap: ', gc.mem_free())
-            conn.close()
+    # _log('listening...')
+    # uasyncio.create_task(uasyncio.start_server(conn_handler, '0.0.0.0', 80))
+
+    # async with _server:
+    #     await _server.serve_forever()
+    # _log('stopped listening')
         
