@@ -1,5 +1,4 @@
 import math
-import time
 import pwm_lightness
 from machine import Pin, PWM
 from neopixel import NeoPixel
@@ -54,8 +53,7 @@ def strip_set(r, g, b):
     cie = _cie_lut_8b
     leds = range(drv.n)
 
-    for led in leds:
-        drv[led] = (cie[r], cie[g], cie[b])
+    drv.fill((cie[r], cie[g], cie[b]))
     drv.write()
 
 def strip_get():
@@ -93,7 +91,7 @@ def strip_set_smooth(r, g, b):
 
     global _led_strip_color
     prev_color = _led_strip_color
-    new_color = bytearray((g, r, b))
+    new_color = bytearray((r, g, b))
 
     if new_color == prev_color:
         return
@@ -105,17 +103,11 @@ def strip_set_smooth(r, g, b):
     cosb_cosa = diff[1] / length
     sinb = diff[2] / length
 
-    color = bytearray(3)
     steps = range(1, int(round(length)) + 1)
     for step in steps:
         new_color[0] = int(prev_color[0] + round(step * cosb_sina))
         new_color[1] = int(prev_color[1] + round(step * cosb_cosa))
         new_color[2] = int(prev_color[2] + round(step * sinb))
-        color[0] = cie[new_color[0]]
-        color[1] = cie[new_color[1]]
-        color[2] = cie[new_color[2]]
-        for led in leds:
-            led *= 3
-            drv.buf[led : led + 3] = color
+        drv.fill((cie[new_color[0]], cie[new_color[1]], cie[new_color[2]]))
         drv.write()
     _led_strip_color = new_color
