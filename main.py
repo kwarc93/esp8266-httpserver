@@ -46,7 +46,7 @@ async def fire_animation():
 
     while True:
         rgbled.strip_fire()
-        await asyncio.sleep(random.choice(range(10, 50)) / 1000)
+        await asyncio.sleep(random.randint(10, 50) / 1000)
 
 # -----------------------------------------------------------------------------
 # http handlers

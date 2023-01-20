@@ -123,7 +123,6 @@ def strip_fire(i = 0):
     rgb = (217, 109, 0)
 
     for led in leds:
-        flicker = random.choice(range(50))
-        rgb_r = tuple([cie[x - flicker] if x-flicker >= 0 else 0 for x in rgb])
-        drv[led] = rgb_r
+        flicker = random.randint(0, 50)
+        drv[led] = tuple([cie[x - flicker] if x-flicker >= 0 else 0 for x in rgb])
     drv.write()
