@@ -4,7 +4,6 @@
 import gc
 import os
 import network
-import socket
 import binascii
 import uasyncio
 
@@ -22,7 +21,6 @@ def _log(*args, **kwargs):
 # -----------------------------------------------------------------------------
 # initialization
 _server = None
-_server_ip = None
 
 def init(wifi_ssid, wifi_pwd):
 
@@ -39,8 +37,7 @@ def init(wifi_ssid, wifi_pwd):
         sta.connect(wifi_ssid, wifi_pwd)
         while not sta.isconnected():
             pass
-    global _server_ip
-    _server_ip = sta.ifconfig()[0]
+
     _log('connected')
     _log('network config: ', sta.ifconfig())
 
@@ -118,8 +115,6 @@ async def conn_handler(reader, writer):
         addr = writer.get_extra_info('peername')
         _log('client connected, address:', addr)
 
-        # conn.settimeout(10.0)
-
         # if basic authentication is enabled dont accept clients without credentials 
         authorized = not _basic_auth_enabled
 
@@ -137,11 +132,12 @@ async def conn_handler(reader, writer):
             if b'Authorization' in header:
                 authorized = _authenticate(header.decode())
 
-        #get body (if available)
+        # get body (if available)
         body = await reader.readexactly(body_length)
 
         start = start.decode().split(' ')
         if len(start) != 3:
+            writer.close()
             await writer.wait_closed()
             return
 
@@ -157,6 +153,7 @@ async def conn_handler(reader, writer):
                 _callbacks['401']['401'](writer, body.decode('utf-8'))
             _log('unauthorized')
             await writer.drain()
+            writer.close()
             await writer.wait_closed()
             return
 
@@ -173,17 +170,11 @@ async def conn_handler(reader, writer):
         _log('closing connection')
         _log('free heap: ', gc.mem_free())
         await writer.drain()
+        writer.close()
         await writer.wait_closed()
 
-# async def listen():
+async def listen():
 
-    # global _server
-    # global _server_ip
-
-    # _log('listening...')
-    # uasyncio.create_task(uasyncio.start_server(conn_handler, '0.0.0.0', 80))
-
-    # async with _server:
-    #     await _server.serve_forever()
-    # _log('stopped listening')
+    _log('listening...')
+    uasyncio.create_task(uasyncio.start_server(conn_handler, '0.0.0.0', 80))
         

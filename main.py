@@ -142,14 +142,11 @@ async def main():
     httpserver.register_not_found_callback(handle_not_found)
     httpserver.register_unauthorized_callback(handle_unauthorized)
 
-    # httpserver.listen()
-    uasyncio.create_task(uasyncio.start_server(httpserver.conn_handler, '0.0.0.0', 80))
     uasyncio.create_task(blink())
-    # uasyncio.create_task(httpserver.listen())
+    uasyncio.create_task(httpserver.listen())
 
     while True:
         await uasyncio.sleep(1)
-    # httpserver.listen()
 
 # Start the whole thing
 uasyncio.run(main())
