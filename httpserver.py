@@ -177,10 +177,11 @@ async def start():
         _log('connecting to network...')
         sta.connect(_wifi_ssid, _wifi_pwd)
         while not sta.isconnected():
-            await asyncio.sleep_ms(100)
+            await asyncio.sleep(0.1)
 
     port = 80;
     addr = sta.ifconfig()[0]
     _log('connected, listening on:', addr + ':' + str(port))
-    asyncio.create_task(asyncio.start_server(_conn_handler, addr, port))
+
+    return asyncio.create_task(asyncio.start_server(_conn_handler, addr, port))
         

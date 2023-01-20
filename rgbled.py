@@ -51,7 +51,6 @@ def strip_set(r, g, b):
 
     drv = _led_strip_drv
     cie = _cie_lut_8b
-    leds = range(drv.n)
 
     drv.fill((cie[r], cie[g], cie[b]))
     drv.write()
@@ -79,15 +78,22 @@ def strip_rainbow(hue_offset = 0):
     
     for led in leds:
         avg_hue = (hue_offset + hue_step * (2 * led + 1) / 2) % 360
-        (r, g, b) = _hsv2rgb(avg_hue, 1.0, 0.1)
+        (r, g, b) = _hsv2rgb(avg_hue, 1.0, 1.0)
         drv[led] = (cie[r], cie[g], cie[b])
+    drv.write()
+
+def strip_fire(i = 0):
+
+    drv = _led_strip_drv
+    cie = _cie_lut_8b
+    
+    drv.fill((cie[200], cie[100], cie[0]))
     drv.write()
 
 def strip_set_smooth(r, g, b):
 
     drv = _led_strip_drv
     cie = _cie_lut_8b
-    leds = range(drv.n)
 
     global _led_strip_color
     prev_color = _led_strip_color

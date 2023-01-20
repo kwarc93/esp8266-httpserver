@@ -21,22 +21,34 @@ def read_file(file):
 
     return data
 
-async def blink(led, period_ms):
+# -----------------------------------------------------------------------------
+# tasks
+
+async def blink(led, period_s):
 
     while True:
         led.on()
-        await asyncio.sleep_ms(period_ms)
+        await asyncio.sleep(period_s)
         led.off()
-        await asyncio.sleep_ms(period_ms)
+        await asyncio.sleep(period_s)
 
-async def rainbow_task():
+async def rainbow_animation():
 
     hue_offset = 0;
 
     while True:
         rgbled.strip_rainbow(hue_offset)
-        hue_offset += 3
-        await asyncio.sleep_ms(1)
+        hue_offset += 2
+        await asyncio.sleep(0)
+
+async def fire_animation():
+
+    i = 0;
+
+    while True:
+        rgbled.strip_fire(i)
+        i += 1
+        await asyncio.sleep(1)
 
 # -----------------------------------------------------------------------------
 # http handlers
@@ -99,7 +111,25 @@ def handle_rainbow(conn, body):
     conn.write(httpserver.create_header(headers, 200))
     conn.write(read_file(html_file))
 
-    http_handler_task = asyncio.create_task(rainbow_task())
+    http_handler_task = asyncio.create_task(rainbow_animation())
+
+def handle_fire(conn, body):
+
+    global http_handler_task
+    if http_handler_task != None:
+        http_handler_task.cancel()
+
+    html_file = 'fire.html'
+
+    headers = {
+        'Content-Type': 'text/html',
+        'Content-Length': str(os.stat(html_file)[6]),
+        'Connection': 'close'
+    }
+    conn.write(httpserver.create_header(headers, 200))
+    conn.write(read_file(html_file))
+
+    http_handler_task = asyncio.create_task(fire_animation())
 
 def handle_favicon(conn, body):
 
@@ -157,15 +187,16 @@ async def main():
     httpserver.register_callback('GET', '/', handle_main_page)
     httpserver.register_callback('GET', '/favicon.ico', handle_favicon)
     httpserver.register_callback('GET', '/rainbow', handle_rainbow)
+    httpserver.register_callback('GET', '/fire', handle_fire)
     httpserver.register_callback('GET', '/rgb', handle_get_rgb)
     httpserver.register_callback('POST', '/rgb', handle_post_rgb)
 
     httpserver.register_not_found_callback(handle_not_found)
     httpserver.register_unauthorized_callback(handle_unauthorized)
 
-    blink_task = asyncio.create_task(blink(status_led, 500))
+    blink_task = asyncio.create_task(blink(status_led, 0.5))
 
-    await httpserver.start()
+    http_srv_task = await httpserver.start()
 
     # server started
     blink_task.cancel()
