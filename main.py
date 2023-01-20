@@ -3,10 +3,10 @@
 
 import os
 import json
-import uasyncio
 import httpserver
 import credentials
 import rgbled
+import uasyncio as asyncio
 
 from machine import Pin
 
@@ -21,8 +21,27 @@ def read_file(file):
 
     return data
 
+async def blink(led, period_ms):
+
+    while True:
+        led.on()
+        await asyncio.sleep_ms(period_ms)
+        led.off()
+        await asyncio.sleep_ms(period_ms)
+
+async def rainbow_task():
+
+    hue_offset = 0;
+
+    while True:
+        rgbled.strip_rainbow(hue_offset)
+        hue_offset += 1
+        asyncio.sleep_ms(1)
+
 # -----------------------------------------------------------------------------
 # http handlers
+
+http_handler_task = None
 
 def handle_main_page(conn, body):
 
@@ -72,7 +91,9 @@ def handle_rainbow(conn, body):
     conn.write(httpserver.create_header(headers, 200))
     conn.write(read_file(html_file))
 
-    rgbled.strip_rainbow()
+    if http_handler_task != None:
+        http_handler_task.cancel()
+    http_handler_task = asyncio.create_task(rainbow_task())
 
 def handle_favicon(conn, body):
 
@@ -108,18 +129,12 @@ def handle_unauthorized(conn, body):
 # -----------------------------------------------------------------------------
 # 'main'
 
-async def blink():
-    green_led = Pin(4, Pin.OUT)
-    green_led.off()
-
-    while True:
-        green_led.on()
-        await uasyncio.sleep_ms(500)
-        green_led.off()
-        await uasyncio.sleep_ms(500)
-
 async def main():
     print("--- main.py ---")
+
+    # init status LED
+    status_led = Pin(4, Pin.OUT)
+    status_led.off()
 
     # set unused IO
     io12 = Pin(12, Pin.OUT)
@@ -142,11 +157,16 @@ async def main():
     httpserver.register_not_found_callback(handle_not_found)
     httpserver.register_unauthorized_callback(handle_unauthorized)
 
-    uasyncio.create_task(blink())
-    uasyncio.create_task(httpserver.listen())
+    blink_task = asyncio.create_task(blink(status_led, 500))
+
+    await httpserver.start()
+
+    # server started
+    blink_task.cancel()
+    status_led.on()
 
     while True:
-        await uasyncio.sleep(1)
+        await asyncio.sleep(1)
 
 # Start the whole thing
-uasyncio.run(main())
+asyncio.run(main())

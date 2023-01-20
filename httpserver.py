@@ -5,7 +5,7 @@ import gc
 import os
 import network
 import binascii
-import uasyncio
+import uasyncio as asyncio
 
 # -----------------------------------------------------------------------------
 # logging
@@ -20,26 +20,16 @@ def _log(*args, **kwargs):
 
 # -----------------------------------------------------------------------------
 # initialization
-_server = None
+_wifi_ssid = None
+_wifi_pwd = None
 
 def init(wifi_ssid, wifi_pwd):
 
-    ap = network.WLAN(network.AP_IF)
-    ap.active(False)
+    global _wifi_ssid
+    global _wifi_pwd
 
-    sta = network.WLAN(network.STA_IF)
-    sta.active(True)
-    sta.config(dhcp_hostname = 'wifirgb')
-    _log(sta.config('dhcp_hostname'))
-
-    if not sta.isconnected():
-        _log('connecting to network...')
-        sta.connect(wifi_ssid, wifi_pwd)
-        while not sta.isconnected():
-            pass
-
-    _log('connected')
-    _log('network config: ', sta.ifconfig())
+    _wifi_ssid = wifi_ssid
+    _wifi_pwd = wifi_pwd
 
 # -----------------------------------------------------------------------------
 # authentication
@@ -109,8 +99,13 @@ def create_header(headers, status):
     
 # -----------------------------------------------------------------------------
 # listening
+async def _conn_close(writer):
 
-async def conn_handler(reader, writer):
+    await writer.drain()
+    writer.close()
+    await writer.wait_closed()
+
+async def _conn_handler(reader, writer):
     try:
         addr = writer.get_extra_info('peername')
         _log('client connected, address:', addr)
@@ -137,8 +132,7 @@ async def conn_handler(reader, writer):
 
         start = start.decode().split(' ')
         if len(start) != 3:
-            writer.close()
-            await writer.wait_closed()
+            await _conn_close(writer)
             return
 
         (method, url, version) = start
@@ -152,9 +146,7 @@ async def conn_handler(reader, writer):
             if '401' in _callbacks and '401' in _callbacks['401']:
                 _callbacks['401']['401'](writer, body.decode('utf-8'))
             _log('unauthorized')
-            await writer.drain()
-            writer.close()
-            await writer.wait_closed()
+            await _conn_close(writer)
             return
 
         if method in _callbacks and url in _callbacks[method]:
@@ -169,12 +161,26 @@ async def conn_handler(reader, writer):
     finally:
         _log('closing connection')
         _log('free heap: ', gc.mem_free())
-        await writer.drain()
-        writer.close()
-        await writer.wait_closed()
+        await _conn_close(writer)
 
-async def listen():
+async def start():
 
-    _log('listening...')
-    uasyncio.create_task(uasyncio.start_server(conn_handler, '0.0.0.0', 80))
+    ap = network.WLAN(network.AP_IF)
+    ap.active(False)
+
+    sta = network.WLAN(network.STA_IF)
+    sta.active(True)
+    sta.config(dhcp_hostname = 'wifirgb')
+    _log(sta.config('dhcp_hostname'))
+
+    if not sta.isconnected():
+        _log('connecting to network...')
+        sta.connect(_wifi_ssid, _wifi_pwd)
+        while not sta.isconnected():
+            await asyncio.sleep_ms(100)
+
+    port = 80;
+    addr = sta.ifconfig()[0]
+    _log('connected, listening on:', addr + ':' + str(port))
+    asyncio.create_task(asyncio.start_server(_conn_handler, addr, port))
         
