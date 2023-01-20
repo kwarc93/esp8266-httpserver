@@ -35,8 +35,8 @@ async def rainbow_task():
 
     while True:
         rgbled.strip_rainbow(hue_offset)
-        hue_offset += 1
-        asyncio.sleep_ms(1)
+        hue_offset += 3
+        await asyncio.sleep_ms(1)
 
 # -----------------------------------------------------------------------------
 # http handlers
@@ -70,6 +70,10 @@ def handle_get_rgb(conn, body):
 
 def handle_post_rgb(conn, body):
 
+    global http_handler_task
+    if http_handler_task != None:
+        http_handler_task.cancel()
+
     headers = {
         'Connection': 'close',
         'ETag': '\"' + str(body) + '\"'
@@ -81,6 +85,10 @@ def handle_post_rgb(conn, body):
 
 def handle_rainbow(conn, body):
 
+    global http_handler_task
+    if http_handler_task != None:
+        http_handler_task.cancel()
+
     html_file = 'rainbow.html'
 
     headers = {
@@ -91,8 +99,6 @@ def handle_rainbow(conn, body):
     conn.write(httpserver.create_header(headers, 200))
     conn.write(read_file(html_file))
 
-    if http_handler_task != None:
-        http_handler_task.cancel()
     http_handler_task = asyncio.create_task(rainbow_task())
 
 def handle_favicon(conn, body):

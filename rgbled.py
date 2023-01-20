@@ -79,7 +79,7 @@ def strip_rainbow(hue_offset = 0):
     
     for led in leds:
         avg_hue = (hue_offset + hue_step * (2 * led + 1) / 2) % 360
-        (r, g, b) = _hsv2rgb(avg_hue, 1.0, 1.0)
+        (r, g, b) = _hsv2rgb(avg_hue, 1.0, 0.1)
         drv[led] = (cie[r], cie[g], cie[b])
     drv.write()
 
