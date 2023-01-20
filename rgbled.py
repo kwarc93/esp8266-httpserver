@@ -1,4 +1,5 @@
 import math
+import random
 import pwm_lightness
 from machine import Pin, PWM
 from neopixel import NeoPixel
@@ -58,38 +59,6 @@ def strip_set(r, g, b):
 def strip_get():
     return _led_strip_color
 
-def _hsv2rgb(h, s, v):
-
-    if h > 360.0 or h < 0.0 or s > 1.0 or s < 0.0 or v > 1.0 or v < 0.0:
-        return None
-    
-    k = lambda n: math.fmod((n + h / 60.0), 6)
-    f = lambda n: v - v * s * max(0, min(min(k(n), 4 - k(n)), 1))
-
-    return (int(f(5) * 255), int(f(3) * 255), int(f(1) * 255))
-
-def strip_rainbow(hue_offset = 0):
-
-    drv = _led_strip_drv
-    cie = _cie_lut_8b
-    leds = range(drv.n)
-    
-    hue_step = 360 / drv.n
-    
-    for led in leds:
-        avg_hue = (hue_offset + hue_step * (2 * led + 1) / 2) % 360
-        (r, g, b) = _hsv2rgb(avg_hue, 1.0, 1.0)
-        drv[led] = (cie[r], cie[g], cie[b])
-    drv.write()
-
-def strip_fire(i = 0):
-
-    drv = _led_strip_drv
-    cie = _cie_lut_8b
-    
-    drv.fill((cie[200], cie[100], cie[0]))
-    drv.write()
-
 def strip_set_smooth(r, g, b):
 
     drv = _led_strip_drv
@@ -117,3 +86,44 @@ def strip_set_smooth(r, g, b):
         drv.fill((cie[new_color[0]], cie[new_color[1]], cie[new_color[2]]))
         drv.write()
     _led_strip_color = new_color
+
+def _hsv2rgb(h, s, v):
+
+    if h > 360.0 or h < 0.0 or s > 1.0 or s < 0.0 or v > 1.0 or v < 0.0:
+        return None
+    
+    k = lambda n: math.fmod((n + h / 60.0), 6)
+    f = lambda n: v - v * s * max(0, min(min(k(n), 4 - k(n)), 1))
+
+    return (int(f(5) * 255), int(f(3) * 255), int(f(1) * 255))
+
+def strip_rainbow(hue_offset = 0):
+
+    drv = _led_strip_drv
+    cie = _cie_lut_8b
+    leds = range(drv.n)
+    
+    hue_step = 360 / drv.n
+    
+    for led in leds:
+        # avg_hue = (hue_offset + hue_step * (2 * led + 1) / 2) % 360
+        avg_hue = (hue_offset + hue_step * led) % 360
+        (r, g, b) = _hsv2rgb(avg_hue, 1.0, 1.0)
+        drv[led] = (cie[r], cie[g], cie[b])
+    drv.write()
+    
+
+def strip_fire(i = 0):
+
+    drv = _led_strip_drv
+    cie = _cie_lut_8b
+    leds = range(drv.n)
+
+    # color of fire
+    rgb = (217, 109, 0)
+
+    for led in leds:
+        flicker = random.choice(range(50))
+        rgb_r = tuple([cie[x - flicker] if x-flicker >= 0 else 0 for x in rgb])
+        drv[led] = rgb_r
+    drv.write()

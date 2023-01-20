@@ -3,6 +3,7 @@
 
 import os
 import json
+import random
 import httpserver
 import credentials
 import rgbled
@@ -34,7 +35,7 @@ async def blink(led, period_s):
 
 async def rainbow_animation():
 
-    hue_offset = 0;
+    hue_offset = 0
 
     while True:
         rgbled.strip_rainbow(hue_offset)
@@ -43,12 +44,9 @@ async def rainbow_animation():
 
 async def fire_animation():
 
-    i = 0;
-
     while True:
-        rgbled.strip_fire(i)
-        i += 1
-        await asyncio.sleep(1)
+        rgbled.strip_fire()
+        await asyncio.sleep(random.choice(range(10, 50)) / 1000)
 
 # -----------------------------------------------------------------------------
 # http handlers
