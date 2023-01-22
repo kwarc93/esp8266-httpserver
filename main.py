@@ -10,6 +10,7 @@ import rgbled
 import uasyncio as asyncio
 
 from machine import Pin
+from machine import Timer
 
 # -----------------------------------------------------------------------------
 # helpers
@@ -82,7 +83,7 @@ def handle_main_page(conn, body):
     }
     conn.write(httpserver.create_header(headers, 200))
     conn.write(read_file(html_file))
-    
+
 def handle_get_rgb(conn, body):
 
     rgb = rgbled.strip_get()
@@ -108,6 +109,23 @@ def handle_post_rgb(conn, body):
     }
     conn.write(httpserver.create_header(headers, 204))
 
+def handle_timer(conn, body):
+
+    json_timer = json.loads(body)
+    timer_value_seconds = json_timer['seconds'];
+
+    tim = Timer(-1)
+
+    if (timer_value_seconds > 0):
+        tim.init(period = json_timer['seconds'] * 1000, mode=Timer.ONE_SHOT, callback = lambda t: rgbled.strip_set_smooth(0, 0, 0))
+    else:
+        tim.deinit()
+
+    headers = {
+        'Connection': 'close',
+        'ETag': '\"' + str(body) + '\"'
+    }
+    conn.write(httpserver.create_header(headers, 204))
 
 def handle_rainbow(conn, body):
 
@@ -199,6 +217,7 @@ async def main():
     httpserver.register_callback('POST', '/breathe', handle_breathe)
     httpserver.register_callback('GET', '/rgb', handle_get_rgb)
     httpserver.register_callback('POST', '/rgb', handle_post_rgb)
+    httpserver.register_callback('POST', '/timer', handle_timer)
 
     httpserver.register_not_found_callback(handle_not_found)
     httpserver.register_unauthorized_callback(handle_unauthorized)

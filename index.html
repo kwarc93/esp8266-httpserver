@@ -22,13 +22,13 @@
 }
 
 .timer-button {
-  background-color: DodgerBlue;
-  border: none;
-  color: #f0f0f0;
-  padding: 8px;
-  font-size: 24px;
-  border-radius: 50%;
-  /* cursor: pointer; */
+	background-color: DodgerBlue;
+	border: none;
+	color: #f0f0f0;
+	padding: 8px;
+	font-size: 24px;
+	border-radius: 50%;
+	/* cursor: pointer; */
 }
 
 .timer-button-img {
@@ -71,31 +71,31 @@
 }
 
 .animated_rainbow {
-            text-align: center;
-            background-size: 200%;
-            background-image: -webkit-linear-gradient(left, #f00, #ff2b00, #f50, #ff8000, #fa0, #ffd500, #ff0, #d4ff00, #af0, #80ff00, #5f0, #2bff00, #0f0, #00ff2a, #0f5, #00ff80, #0fa, #00ffd5, #0ff, #00d5ff, #0af, #0080ff, #05f, #002aff, #00f, #2b00ff, #50f, #8000ff, #a0f, #d400ff, #f0f, #ff00d4, #f0a, #ff0080, #f05, #ff002b, #f00);
-            color: transparent;
-            animation: animatedBackground 5s linear infinite;
-        }
+	text-align: center;
+	background-size: 200%;
+	background-image: -webkit-linear-gradient(left, #f00, #ff2b00, #f50, #ff8000, #fa0, #ffd500, #ff0, #d4ff00, #af0, #80ff00, #5f0, #2bff00, #0f0, #00ff2a, #0f5, #00ff80, #0fa, #00ffd5, #0ff, #00d5ff, #0af, #0080ff, #05f, #002aff, #00f, #2b00ff, #50f, #8000ff, #a0f, #d400ff, #f0f, #ff00d4, #f0a, #ff0080, #f05, #ff002b, #f00);
+	color: transparent;
+	animation: animatedBackground 5s linear infinite;
+}
 
-        @keyframes animatedBackground {
-            0% { background-position: left center }
-            100% { background-position: -200% center }
-        }
-		
+@keyframes animatedBackground {
+	0% { background-position: left center }
+	100% { background-position: -200% center }
+}
+
 .animated_fire {
-            text-align: center;
-            background-size: 100% 200%;
-            background-image: -webkit-linear-gradient(top, #f00, #ff2b00, #f50, #ff8000, #fa0, #ffd500, #ff0, #ffd500, #fa0, #ff8000, #f50, #ff2b00, #f00);
-            color: transparent;
-            animation: animatedBackground2 5s linear infinite;
-        }
+	text-align: center;
+	background-size: 100% 200%;
+	background-image: -webkit-linear-gradient(top, #f00, #ff2b00, #f50, #ff8000, #fa0, #ffd500, #ff0, #ffd500, #fa0, #ff8000, #f50, #ff2b00, #f00);
+	color: transparent;
+	animation: animatedBackground2 5s linear infinite;
+}
 
 @keyframes animatedBackground2 {
 	0% { background-position: center top }
 	100% { background-position: center 200% }
 }
-    
+
 </style>
 
 <body class="centered">
@@ -129,16 +129,17 @@
 			</div>
 		</div>
 	</div>
-	
+</body>
+
 <script type="text/javascript">
 
 calcPageLook();
 var colorPicker = new iro.ColorPicker("#picker",
-    {
-        borderWidth: 2,
-        borderColor: "#f0f0f0",
-        wheelLightness: false, 
-    });
+	{
+		borderWidth: 2,
+		borderColor: "#f0f0f0",
+		wheelLightness: false, 
+	});
 
 colorPicker.on("input:end",
 function(color) {
@@ -155,27 +156,67 @@ function runEffect(effect) {
     xhr.send();
 }
 
+var oneSecondInterval;
+var timerValueCounterSeconds = 0;
+var timerValue = document.getElementById("timer-value")
+var sliderInput = document.getElementById("timer-slider")
+
+timerValue.textContent = sliderInput.value
+sliderInput.addEventListener("input", (event) => {
+	timerValueCounterSeconds = event.target.value * 60;
+	timerValue.textContent = event.target.value
+})
+
 function timerBtnHandler() {
+	if (timerValueCounterSeconds <= 0) {
+		return
+	}
 
 	var icon = document.getElementById("timer-button-icon")
 	var slider = document.getElementById("timer-slider")
+	var time = document.getElementById("timer-value")
 
-	/* Toggle icon */
+	function clearTimer() {
+		icon.className = "bi bi-clock"
+		slider.disabled = false;
+		clearInterval(oneSecondInterval);
+		timerValueCounterSeconds = 0;
+		slider.step = 5;
+		slider.value = 0;
+		time.textContent = slider.value
+	}
+
+	function setCountdownTimerOnServer(timerValueSeconds) {
+		let xhr = new XMLHttpRequest();
+		xhr.open("POST", "/timer", true);
+		xhr.setRequestHeader("Content-Type", "application/json");
+		xhr.send(JSON.stringify({"seconds": timerValueSeconds}));
+	}
+
+	/* Toggle timer */
 	if (icon.className === "bi bi-clock") {
 		icon.className = "bi bi-clock-history"
 		slider.disabled = true;
+		slider.step = 1;
+
+		setCountdownTimerOnServer(timerValueCounterSeconds);
+
+		/* Start timer to countdown every 1 second */
+		oneSecondInterval = setInterval(function() {
+			timerValueCounterSeconds = timerValueCounterSeconds - 1
+			slider.value = Math.round(timerValueCounterSeconds / 60);
+			time.textContent = slider.value
+
+			if (timerValueCounterSeconds <= 0) {
+				clearTimer()
+			}
+	}, 17);
+
 	} else {
-		icon.className = "bi bi-clock"
-		slider.disabled = false;
+		clearTimer()
+		setCountdownTimerOnServer(0);
 	}
 }
-
-const timerValue = document.querySelector("#timer-value")
-const sliderInput = document.querySelector("#timer-slider")
-timerValue.textContent = sliderInput.value
-sliderInput.addEventListener("input", (event) => {
-	timerValue.textContent = event.target.value
-})
 
 function calcPageLook() {
 	const isMobileDevice = /Mobi/i.test(window.navigator.userAgent)
@@ -211,5 +252,4 @@ function ()
 });
 
 </script>
-</body>
 </html>
