@@ -1,84 +1,215 @@
-<!doctype html>
-<html lang="en">
-
+<html>
 <head>
-    <meta charset="utf-8">
-    <title>RGB Light Control</title>
-    <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.3/font/bootstrap-icons.min.css" integrity="sha512-YFENbnqHbCRmJt5d+9lHimyEMt8LKSNTMLSaHjvsclnZGICeY/0KYEeiHwD1Ux4Tcao0h60tdcMv+0GljvWyHg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
-
 <style>
-    .centered
-    {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        /* bring your own prefixes */
-        transform: translate(-50%, -50%);
-        background-color: black;
-    }
+.centered {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-family: "Trebuchet MS", Helvetica, sans-serif;
+	color: white;
+	background-color: black;
+}
+
+.effect-button {
+	border: 2px solid #f0f0f0;
+	padding: 24px;
+	border-radius: 50%;
+	/* cursor: pointer; */
+}
+
+.timer-button {
+  background-color: DodgerBlue;
+  border: none;
+  color: #f0f0f0;
+  padding: 8px;
+  font-size: 24px;
+  border-radius: 50%;
+  /* cursor: pointer; */
+}
+
+.timer-button-img {
+	width: 28px;
+	height: 28px;
+}
+
+.timer-button-container {
+	top: 50%;
+	transform: translate(0%, -50%);
+	width: 15%;
+	display: inline-block;
+}
+
+.timer-slider-container {
+	width: 60%;
+	display: inline-block;
+}
+
+.timer-value-container {
+	width: 15%;
+	display: inline-block;
+}
+
+.timer-slider {
+	width: 100%;
+}
+
+.timer-datalist {
+	width: 100%;
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	writing-mode: horizontal-tb;
+
+}
+
+.timer-option {
+  padding: 0;
+}
+
+.animated_rainbow {
+            text-align: center;
+            background-size: 200%;
+            background-image: -webkit-linear-gradient(left, #f00, #ff2b00, #f50, #ff8000, #fa0, #ffd500, #ff0, #d4ff00, #af0, #80ff00, #5f0, #2bff00, #0f0, #00ff2a, #0f5, #00ff80, #0fa, #00ffd5, #0ff, #00d5ff, #0af, #0080ff, #05f, #002aff, #00f, #2b00ff, #50f, #8000ff, #a0f, #d400ff, #f0f, #ff00d4, #f0a, #ff0080, #f05, #ff002b, #f00);
+            color: transparent;
+            animation: animatedBackground 5s linear infinite;
+        }
+
+        @keyframes animatedBackground {
+            0% { background-position: left center }
+            100% { background-position: -200% center }
+        }
+		
+.animated_fire {
+            text-align: center;
+            background-size: 100% 200%;
+            background-image: -webkit-linear-gradient(top, #f00, #ff2b00, #f50, #ff8000, #fa0, #ffd500, #ff0, #ffd500, #fa0, #ff8000, #f50, #ff2b00, #f00);
+            color: transparent;
+            animation: animatedBackground2 5s linear infinite;
+        }
+
+@keyframes animatedBackground2 {
+	0% { background-position: center top }
+	100% { background-position: center 200% }
+}
+    
 </style>
 
 <body class="centered">
-    <meta name="theme-color" content="#000000"/>
-    <div id="picker"></div>
-</body>
-
+<meta name="theme-color" content="#000000"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<div id="picker"></div>
+	<div style="text-align: center; margin-top: 10px;">
+		<div style="display: block">
+			<button class="effect-button animated_fire" onclick="runEffect('fire')"></button> <button class="effect-button animated_rainbow" onclick="runEffect('rainbow')"></button>
+		</div>
+		<div style="display: block">
+			<div class="timer-button-container">
+				<button class="timer-button" onclick="timerBtnHandler()">
+					<i class="bi bi-clock" id="timer-button-icon"></i>
+				</button>
+			</div>
+			<div class="timer-slider-container">
+				<input class="timer-slider" type="range" min="0" max="60" value="0" step="5" id="timer-slider" list="time-values">
+				<datalist class="timer-datalist" id="time-values">
+				<option class="timer-option" value="0">0</option>
+				<option class="timer-option" value="10"></option>
+				<option class="timer-option" value="20"></option>
+				<option class="timer-option" value="30"></option>
+				<option class="timer-option" value="40"></option>
+				<option class="timer-option" value="50"></option>
+				<option class="timer-option" value="60">60</option>
+				</datalist>
+			</div>
+			<div class="timer-value-container">
+				<output id="timer-value" style="font-size: 24px"></output><br>min
+			</div>
+		</div>
+	</div>
+	
 <script type="text/javascript">
-    function calcPickerLook()
+
+calcPageLook();
+var colorPicker = new iro.ColorPicker("#picker",
     {
-        var orientation = (screen.orientation || {}).type || screen.mozOrientation || screen.msOrientation;
-        
-        if (orientation === "landscape-primary" || orientation === "landscape-secondary") 
-        {
-            var width = window.innerWidth - 0.7 * window.innerWidth;
-            return [width, "horizontal"];
-        }
-        else if (orientation === "portrait-primary" || orientation === "portrait-secondary")
-        {
-            var width = window.innerWidth - 0.15 * window.innerWidth;
-            return [width, "vertical"];
-        }
-        else if (orientation === undefined)
-        {
-            return [undefined, undefined];
-        }
-    }
-    
-    var pickerLook = calcPickerLook();
-    var colorPicker = new iro.ColorPicker("#picker",
-    {
-        width: pickerLook[0],
-        layoutDirection: pickerLook[1],
         borderWidth: 2,
         borderColor: "#f0f0f0",
         wheelLightness: false, 
-        margin: 64,
-        handleRadius: 16
     });
 
-    let xhr = new XMLHttpRequest();
-    xhr.open("GET", "/rgb");
-    xhr.responseType = "json";
-    xhr.onload = function() { colorPicker.color.set(xhr.response); };
+colorPicker.on("input:end",
+function(color) {
+	let xhr = new XMLHttpRequest();
+	xhr.open("POST", "/rgb", true);
+	xhr.setRequestHeader("Content-Type", "application/json");
+	xhr.send(JSON.stringify(color.rgb));
+});
+
+function runEffect(effect) {
+	let xhr = new XMLHttpRequest();
+    xhr.open("POST", "/" + effect, true);
+    xhr.setRequestHeader("Content-Length", "0");
     xhr.send();
+}
 
-    colorPicker.on("input:end",
-    function(color)
-    {
-        let xhr = new XMLHttpRequest();
-        xhr.open("POST", "/rgb", true);
-        xhr.setRequestHeader("Content-Type", "application/json");
-        xhr.send(JSON.stringify(color.rgb));
-    });
+function timerBtnHandler() {
 
-    window.addEventListener("orientationchange",
-    function ()
-    {
-        let widthAndLayout = calcPickerLook()
-        colorPicker.state.width = widthAndLayout[0];
-        colorPicker.state.layoutDirection = widthAndLayout[1];
-        colorPicker.forceUpdate();
-    });
+	var icon = document.getElementById("timer-button-icon")
+	var slider = document.getElementById("timer-slider")
+
+	/* Toggle icon */
+	if (icon.className === "bi bi-clock") {
+		icon.className = "bi bi-clock-history"
+		slider.disabled = true;
+	} else {
+		icon.className = "bi bi-clock"
+		slider.disabled = false;
+	}
+}
+
+const timerValue = document.querySelector("#timer-value")
+const sliderInput = document.querySelector("#timer-slider")
+timerValue.textContent = sliderInput.value
+sliderInput.addEventListener("input", (event) => {
+	timerValue.textContent = event.target.value
+})
+
+function calcPageLook() {
+	const isMobileDevice = /Mobi/i.test(window.navigator.userAgent)
+	
+	const orientation = (screen.orientation || {}).type || screen.mozOrientation || screen.msOrientation;
+	const oriLandscape = orientation.startsWith("landscape");
+	
+	if (isMobileDevice) {
+
+		/* "Lock" the page look to portrait */
+		if (oriLandscape) {
+			document.body.setAttribute("style",
+			"transform: rotate(-90deg) translate(-50%, -50%);\
+			transform-origin: left top;\
+			top: 50%;\
+			left: 50%;\
+			");
+		}
+		else {
+			document.body.setAttribute("style",
+			"transform: translate(-50%, -50%);\
+			top: 50%;\
+			left: 50%;\
+			");
+		}
+	}
+}
+
+window.addEventListener("orientationchange",
+function ()
+{
+	calcPageLook();
+});
+
 </script>
+</body>
 </html>

@@ -33,6 +33,21 @@ async def blink(led, period_s):
         led.off()
         await asyncio.sleep(period_s)
 
+animation_task = None
+
+def cancel_animation_task():
+    
+    global animation_task
+    if animation_task is not None:
+        animation_task.cancel()
+
+def run_animation_task(task):
+
+    global animation_task
+    if animation_task is not None:
+        animation_task.cancel()
+    animation_task = asyncio.create_task(task())
+
 async def rainbow_animation():
 
     hue_offset = 0
@@ -40,7 +55,7 @@ async def rainbow_animation():
     while True:
         rgbled.strip_rainbow(hue_offset)
         hue_offset += 2
-        await asyncio.sleep(0)
+        await asyncio.sleep(0.01)
 
 async def fire_animation():
 
@@ -48,10 +63,13 @@ async def fire_animation():
         rgbled.strip_fire()
         await asyncio.sleep(random.randint(10, 50) / 1000)
 
+async def breathe_animation():
+    # TODO
+    return
+
+
 # -----------------------------------------------------------------------------
 # http handlers
-
-http_handler_task = None
 
 def handle_main_page(conn, body):
 
@@ -80,9 +98,9 @@ def handle_get_rgb(conn, body):
 
 def handle_post_rgb(conn, body):
 
-    global http_handler_task
-    if http_handler_task != None:
-        http_handler_task.cancel()
+    cancel_animation_task()
+    json_rgb = json.loads(body)
+    rgbled.strip_set_smooth(json_rgb['r'], json_rgb['g'], json_rgb['b'])
 
     headers = {
         'Connection': 'close',
@@ -90,44 +108,36 @@ def handle_post_rgb(conn, body):
     }
     conn.write(httpserver.create_header(headers, 204))
 
-    json_rgb = json.loads(body)
-    rgbled.strip_set_smooth(json_rgb['r'], json_rgb['g'], json_rgb['b'])
 
 def handle_rainbow(conn, body):
 
-    global http_handler_task
-    if http_handler_task != None:
-        http_handler_task.cancel()
-
-    html_file = 'rainbow.html'
+    run_animation_task(rainbow_animation)
 
     headers = {
-        'Content-Type': 'text/html',
-        'Content-Length': str(os.stat(html_file)[6]),
-        'Connection': 'close'
+        'Connection': 'close',
+        'ETag': '\"' + str(body) + '\"'
     }
-    conn.write(httpserver.create_header(headers, 200))
-    conn.write(read_file(html_file))
-
-    http_handler_task = asyncio.create_task(rainbow_animation())
+    conn.write(httpserver.create_header(headers, 204))
 
 def handle_fire(conn, body):
 
-    global http_handler_task
-    if http_handler_task != None:
-        http_handler_task.cancel()
-
-    html_file = 'fire.html'
+    run_animation_task(fire_animation)
 
     headers = {
-        'Content-Type': 'text/html',
-        'Content-Length': str(os.stat(html_file)[6]),
-        'Connection': 'close'
+        'Connection': 'close',
+        'ETag': '\"' + str(body) + '\"'
     }
-    conn.write(httpserver.create_header(headers, 200))
-    conn.write(read_file(html_file))
+    conn.write(httpserver.create_header(headers, 204))
 
-    http_handler_task = asyncio.create_task(fire_animation())
+def handle_breathe(conn, body):
+        
+    run_animation_task(breathe_animation)
+
+    headers = {
+        'Connection': 'close',
+        'ETag': '\"' + str(body) + '\"'
+    }
+    conn.write(httpserver.create_header(headers, 204))
 
 def handle_favicon(conn, body):
 
@@ -184,8 +194,9 @@ async def main():
 
     httpserver.register_callback('GET', '/', handle_main_page)
     httpserver.register_callback('GET', '/favicon.ico', handle_favicon)
-    httpserver.register_callback('GET', '/rainbow', handle_rainbow)
-    httpserver.register_callback('GET', '/fire', handle_fire)
+    httpserver.register_callback('POST', '/rainbow', handle_rainbow)
+    httpserver.register_callback('POST', '/fire', handle_fire)
+    httpserver.register_callback('POST', '/breathe', handle_breathe)
     httpserver.register_callback('GET', '/rgb', handle_get_rgb)
     httpserver.register_callback('POST', '/rgb', handle_post_rgb)
 

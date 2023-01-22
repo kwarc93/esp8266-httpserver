@@ -53,6 +53,9 @@ def strip_set(r, g, b):
     drv = _led_strip_drv
     cie = _cie_lut_8b
 
+    global _led_strip_color
+    _led_strip_color = bytearray((r, g, b))
+
     drv.fill((cie[r], cie[g], cie[b]))
     drv.write()
 
