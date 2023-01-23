@@ -9,7 +9,8 @@ import uasyncio as asyncio
 
 # -----------------------------------------------------------------------------
 # logging
-_log_enabled = False
+
+_log_enabled = True
 
 def _log(*args, **kwargs):
 
@@ -20,6 +21,7 @@ def _log(*args, **kwargs):
 
 # -----------------------------------------------------------------------------
 # initialization
+
 _wifi_ssid = None
 _wifi_pwd = None
 
@@ -33,9 +35,10 @@ def init(wifi_ssid, wifi_pwd):
 
 # -----------------------------------------------------------------------------
 # authentication
+
 _basic_auth_enabled = False
-_usr_name = ''
-_usr_pwd = ''
+_usr_name = None
+_usr_pwd = None
 
 def enable_basic_auth(usr_name, usr_pwd):
 
@@ -65,43 +68,47 @@ def _authenticate(authorization_header):
 
 # -----------------------------------------------------------------------------
 # callbacks
-_callbacks = {}
 
-def register_callback(method, url, callback):
+_handlers = {}
 
-    global _callbacks
+def add_handler(method, url, callback):
 
-    if method not in _callbacks:
-        _callbacks[method] = {}
-    _callbacks[method][url] = callback
+    global _handlers
 
-def register_not_found_callback(callback):
-    register_callback('404', '404', callback)
+    if method not in _handlers:
+        _handlers[method] = {}
+    _handlers[method][url] = callback
 
-def register_unauthorized_callback(callback):
-    register_callback('401', '401', callback)
+def add_not_found_handler(callback):
+    add_handler('404', '404', callback)
+
+def add_unauthorized_handler(callback):
+    add_handler('401', '401', callback)
 
 # -----------------------------------------------------------------------------
 # utils
 
-def create_header(headers, status):
+def gc_cleanup():
 
-    colon = ': '
-    lend = '\r\n'
-    header = 'HTTP/1.1 ' + str(status) + ' OK\r\n'
-    header += 'Server: ' + getattr(os.uname(), 'machine') + ', Micropython ' + getattr(os.uname(), 'version') + '\r\n'
-    
+    gc.collect()
+    gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+    _log('free heap: ', gc.mem_free())
+
+def create_header(headers, status):
+ 
+    header = 'HTTP/1.1 {} OK\r\n Server: {}, Micropython {}\r\n'.format(str(status), getattr(os.uname(), 'machine'), getattr(os.uname(), 'version'))
+
     for name in headers:
-        header += name + colon + headers[name] + lend
+        header += '{}: {}\r\n'.format(name, headers[name])
 
     # Server does not support persistent connections
-    header += 'Connection: close' + lend
-    header += lend
+    header += 'Connectrion: close{}{}\r\n\r\n'
 
     return header
     
 # -----------------------------------------------------------------------------
 # listening
+
 async def _conn_close(writer):
 
     await writer.drain()
@@ -109,6 +116,9 @@ async def _conn_close(writer):
     await writer.wait_closed()
 
 async def _conn_handler(reader, writer):
+ 
+    gc_cleanup()
+
     try:
         addr = writer.get_extra_info('peername')
         _log('client connected, address:', addr)
@@ -130,6 +140,8 @@ async def _conn_handler(reader, writer):
             if b'Authorization' in header:
                 authorized = _authenticate(header.decode())
 
+        gc_cleanup()
+
         # get body (if available)
         body = await reader.readexactly(body_length)
 
@@ -146,16 +158,18 @@ async def _conn_handler(reader, writer):
         _log('body: ', body, body_length)
 
         if not authorized:
-            if '401' in _callbacks and '401' in _callbacks['401']:
-                _callbacks['401']['401'](writer, body.decode('utf-8'))
+            if '401' in _handlers and '401' in _handlers['401']:
+                _handlers['401']['401'](writer, body.decode('utf-8'))
             _log('unauthorized')
             await _conn_close(writer)
             return
 
-        if method in _callbacks and url in _callbacks[method]:
-            _callbacks[method][url](writer, body.decode('utf-8'))
-        elif '404' in _callbacks and '404' in _callbacks['404']:
-            _callbacks['404']['404'](writer, body.decode('utf-8'))
+        gc_cleanup()
+
+        if method in _handlers and url in _handlers[method]:
+            _handlers[method][url](writer, body.decode('utf-8'))
+        elif '404' in _handlers and '404' in _handlers['404']:
+            _handlers['404']['404'](writer, body.decode('utf-8'))
         else:
             _log('no handler for request')
 
@@ -163,10 +177,8 @@ async def _conn_handler(reader, writer):
         _log('OSError:', e)
     finally:
         _log('closing connection')
-        gc.collect()
-        gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-        _log('free heap: ', gc.mem_free())
         await _conn_close(writer)
+        gc_cleanup()
 
 async def start():
 
@@ -188,5 +200,5 @@ async def start():
     addr = sta.ifconfig()[0]
     _log('connected, listening on:', addr + ':' + str(port))
 
-    return asyncio.create_task(asyncio.start_server(_conn_handler, addr, port))
+    return asyncio.create_task(asyncio.start_server(_conn_handler, addr, port, backlog = 3))
         

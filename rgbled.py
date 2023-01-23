@@ -74,6 +74,7 @@ def strip_set_smooth(r, g, b):
     new_color = bytearray((r, g, b))
 
     if new_color == prev_color:
+        strip_set(r, g, b)
         return
 
     diff = (new_color[0] - prev_color[0], new_color[1] - prev_color[1], new_color[2] - prev_color[2])

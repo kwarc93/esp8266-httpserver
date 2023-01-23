@@ -15,14 +15,23 @@ from machine import Timer
 # -----------------------------------------------------------------------------
 # helpers
 
+def get_file_size(file):
+    return os.stat(file)[6]
+
 def read_file(file):
 
-    data = None
     with open(file, 'rb') as f:
-        data = f.read()
+        return f.read()
 
-    return data
+def handle_http_file(conn, body, file, content_type, code):
 
+    headers = {
+        'Content-Type': content_type,
+        'Content-Length': str(get_file_size(file))
+    }
+    conn.write(httpserver.create_header(headers, code))
+    conn.write(read_file(file))
+    
 animation_task = None
 
 def cancel_animation_task():
@@ -82,14 +91,23 @@ async def breathe_animation():
 
 def handle_main_page(conn, body):
 
-    html_file = 'page.html'
+    handle_http_file(conn, body, 'page.html', 'text/html', 200)
 
-    headers = {
-        'Content-Type': 'text/html',
-        'Content-Length': str(os.stat(html_file)[6])
-    }
-    conn.write(httpserver.create_header(headers, 200))
-    conn.write(read_file(html_file))
+def handle_favicon(conn, body):
+
+    handle_http_file(conn, body, 'favicon.ico', 'image/x-icon', 200)
+
+def handle_javascript(conn, body):
+
+    handle_http_file(conn, body, 'script.js', 'text/javascript', 200)
+
+def handle_css_styles(conn, body):
+
+    handle_http_file(conn, body, 'styles.css', 'text/css', 200)
+
+def handle_not_found(conn, body):
+    
+    handle_http_file(conn, body, '404.html', 'text/html', 404)
 
 def handle_get_rgb(conn, body):
 
@@ -161,50 +179,6 @@ def handle_breathe(conn, body):
     }
     conn.write(httpserver.create_header(headers, 204))
 
-def handle_favicon(conn, body):
-
-    ico_file = 'favicon.ico'
-
-    headers = {
-        'Content-Type': 'image/x-icon',
-        'Content-Length': str(os.stat(ico_file)[6])
-    }
-    conn.write(httpserver.create_header(headers, 200))
-    conn.write(read_file(ico_file))
-
-def handle_javascript(conn, body):
-
-    js_file = 'script.js'
-
-    headers = {
-        'Content-Type': 'text/javascript',
-        'Content-Length': str(os.stat(js_file)[6])
-    }
-    conn.write(httpserver.create_header(headers, 200))
-    conn.write(read_file(js_file))
-
-def handle_css_styles(conn, body):
-
-    css_file = 'styles.css'
-
-    headers = {
-        'Content-Type': 'text/css',
-        'Content-Length': str(os.stat(css_file)[6])
-    }
-    conn.write(httpserver.create_header(headers, 200))
-    conn.write(read_file(css_file))
-
-def handle_not_found(conn, body):
-
-    html_file = '404.html'
-
-    headers = {
-        'Content-Type': 'text/html',
-        'Content-Length': str(os.stat(html_file)[6])
-    }
-    conn.write(httpserver.create_header(headers, 404))
-    conn.write(read_file(html_file))
-
 def handle_unauthorized(conn, body):
 
     headers = {
@@ -234,20 +208,20 @@ async def main():
     httpserver.init(credentials.wifi_ssid, credentials.wifi_pwd)
     httpserver.enable_basic_auth(credentials.usr_name, credentials.usr_pwd)
 
-    httpserver.register_callback('GET', '/', handle_main_page)
-    httpserver.register_callback('GET', '/favicon.ico', handle_favicon)
-    httpserver.register_callback('GET', '/script.js', handle_javascript)
-    httpserver.register_callback('GET', '/styles.css', handle_css_styles)
-    httpserver.register_callback('POST', '/rainbow', handle_rainbow)
-    httpserver.register_callback('POST', '/fire', handle_fire)
-    httpserver.register_callback('POST', '/breathe', handle_breathe)
-    httpserver.register_callback('GET', '/rgb', handle_get_rgb)
-    httpserver.register_callback('POST', '/rgb', handle_post_rgb)
-    httpserver.register_callback('POST', '/timer', handle_post_timer)
-    httpserver.register_callback('GET', '/timer', handle_get_timer)
+    httpserver.add_handler('GET', '/', handle_main_page)
+    httpserver.add_handler('GET', '/favicon.ico', handle_favicon)
+    httpserver.add_handler('GET', '/script.js', handle_javascript)
+    httpserver.add_handler('GET', '/styles.css', handle_css_styles)
+    httpserver.add_handler('POST', '/rainbow', handle_rainbow)
+    httpserver.add_handler('POST', '/fire', handle_fire)
+    httpserver.add_handler('POST', '/breathe', handle_breathe)
+    httpserver.add_handler('GET', '/rgb', handle_get_rgb)
+    httpserver.add_handler('POST', '/rgb', handle_post_rgb)
+    httpserver.add_handler('POST', '/timer', handle_post_timer)
+    httpserver.add_handler('GET', '/timer', handle_get_timer)
 
-    httpserver.register_not_found_callback(handle_not_found)
-    httpserver.register_unauthorized_callback(handle_unauthorized)
+    httpserver.add_not_found_handler(handle_not_found)
+    httpserver.add_unauthorized_handler(handle_unauthorized)
 
     blink_task = asyncio.create_task(blink(status_led, 0.5))
 
