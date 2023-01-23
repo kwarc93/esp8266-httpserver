@@ -10,7 +10,7 @@ import uasyncio as asyncio
 # -----------------------------------------------------------------------------
 # logging
 
-_log_enabled = True
+_log_enabled = False
 
 def _log(*args, **kwargs):
 
@@ -88,7 +88,7 @@ def add_unauthorized_handler(callback):
 # -----------------------------------------------------------------------------
 # utils
 
-def gc_cleanup():
+def _gc_cleanup():
 
     gc.collect()
     gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
@@ -102,7 +102,7 @@ def create_header(headers, status):
         header += '{}: {}\r\n'.format(name, headers[name])
 
     # Server does not support persistent connections
-    header += 'Connectrion: close{}{}\r\n\r\n'
+    header += 'Connectrion: close\r\n\r\n'
 
     return header
     
@@ -117,7 +117,7 @@ async def _conn_close(writer):
 
 async def _conn_handler(reader, writer):
  
-    gc_cleanup()
+    _gc_cleanup()
 
     try:
         addr = writer.get_extra_info('peername')
@@ -140,7 +140,7 @@ async def _conn_handler(reader, writer):
             if b'Authorization' in header:
                 authorized = _authenticate(header.decode())
 
-        gc_cleanup()
+        _gc_cleanup()
 
         # get body (if available)
         body = await reader.readexactly(body_length)
@@ -164,7 +164,7 @@ async def _conn_handler(reader, writer):
             await _conn_close(writer)
             return
 
-        gc_cleanup()
+        _gc_cleanup()
 
         if method in _handlers and url in _handlers[method]:
             _handlers[method][url](writer, body.decode('utf-8'))
@@ -178,7 +178,7 @@ async def _conn_handler(reader, writer):
     finally:
         _log('closing connection')
         await _conn_close(writer)
-        gc_cleanup()
+        _gc_cleanup()
 
 async def start():
 
