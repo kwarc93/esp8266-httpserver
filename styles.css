@@ -1,0 +1,87 @@
+.centered {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-family: "Trebuchet MS", Helvetica, sans-serif;
+	color: white;
+	background-color: black;
+}
+
+.effect-button {
+	border: 2px solid #f0f0f0;
+	padding: 24px;
+	border-radius: 50%;
+	/* cursor: pointer; */
+}
+
+.timer-button {
+	background-color: DodgerBlue;
+	border: none;
+	color: #f0f0f0;
+	font-size: 24px;
+	width: 40px;
+	height: 40px;
+	border-radius: 20%;
+	/* cursor: pointer; */
+}
+
+.timer-button-container {
+	top: 50%;
+	transform: translate(0%, -50%);
+	width: 15%;
+	display: inline-block;
+}
+
+.timer-slider-container {
+	width: 60%;
+	display: inline-block;
+}
+
+.timer-value-container {
+	width: 15%;
+	display: inline-block;
+}
+
+.timer-slider {
+	width: 100%;
+}
+
+.timer-datalist {
+	width: 100%;
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	writing-mode: horizontal-tb;
+
+}
+
+.timer-option {
+  padding: 0;
+}
+
+.animated_rainbow {
+	text-align: center;
+	background-size: 200%;
+	background-image: -webkit-linear-gradient(left, #f00, #ff2b00, #f50, #ff8000, #fa0, #ffd500, #ff0, #d4ff00, #af0, #80ff00, #5f0, #2bff00, #0f0, #00ff2a, #0f5, #00ff80, #0fa, #00ffd5, #0ff, #00d5ff, #0af, #0080ff, #05f, #002aff, #00f, #2b00ff, #50f, #8000ff, #a0f, #d400ff, #f0f, #ff00d4, #f0a, #ff0080, #f05, #ff002b, #f00);
+	color: transparent;
+	animation: animatedBackground 5s linear infinite;
+}
+
+@keyframes animatedBackground {
+	0% { background-position: left center }
+	100% { background-position: -200% center }
+}
+
+.animated_fire {
+	text-align: center;
+	background-size: 100% 200%;
+	background-image: -webkit-linear-gradient(top, #f00, #ff2b00, #f50, #ff8000, #fa0, #ffd500, #ff0, #ffd500, #fa0, #ff8000, #f50, #ff2b00, #f00);
+	color: transparent;
+	animation: animatedBackground2 5s linear infinite;
+}
+
+@keyframes animatedBackground2 {
+	0% { background-position: center top }
+	100% { background-position: center 200% }
+}

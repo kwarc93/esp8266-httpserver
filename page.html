@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>RGB Light Control</title>
+    <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5"></script>
+	<link rel="stylesheet" href="styles.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.3/font/bootstrap-icons.min.css" integrity="sha512-YFENbnqHbCRmJt5d+9lHimyEMt8LKSNTMLSaHjvsclnZGICeY/0KYEeiHwD1Ux4Tcao0h60tdcMv+0GljvWyHg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body class="centered">
+<meta name="theme-color" content="#000000"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<div id="picker"></div>
+	<div style="text-align: center; margin-top: 10px;">
+		<div style="display: block">
+			<button class="effect-button animated_fire" onclick="runEffect('fire')"></button> <button class="effect-button animated_rainbow" onclick="runEffect('rainbow')"></button>
+		</div>
+		<div style="display: block">
+			<div class="timer-button-container">
+				<button class="timer-button" onclick="timerBtnHandler()">
+					<i class="bi bi-clock" id="timer-button-icon"></i>
+				</button>
+			</div>
+			<div class="timer-slider-container">
+				<input class="timer-slider" type="range" min="0" max="60" value="0" step="5" id="timer-slider" list="time-values">
+				<datalist class="timer-datalist" id="time-values">
+				<option class="timer-option" value="0">0</option>
+				<option class="timer-option" value="10"></option>
+				<option class="timer-option" value="20"></option>
+				<option class="timer-option" value="30"></option>
+				<option class="timer-option" value="40"></option>
+				<option class="timer-option" value="50"></option>
+				<option class="timer-option" value="60">60</option>
+				</datalist>
+			</div>
+			<div class="timer-value-container">
+				<output id="timer-value" style="font-size: 24px"></output><br>min
+			</div>
+		</div>
+	</div>
+</body>
+<script type="text/javascript" src="script.js"></script>
+</html>

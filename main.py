@@ -23,17 +23,6 @@ def read_file(file):
 
     return data
 
-# -----------------------------------------------------------------------------
-# tasks
-
-async def blink(led, period_s):
-
-    while True:
-        led.on()
-        await asyncio.sleep(period_s)
-        led.off()
-        await asyncio.sleep(period_s)
-
 animation_task = None
 
 def cancel_animation_task():
@@ -48,6 +37,25 @@ def run_animation_task(task):
     if animation_task is not None:
         animation_task.cancel()
     animation_task = asyncio.create_task(task())
+
+turn_off_tim = Timer(-1)
+
+def turn_off_light():
+
+    global turn_off_tim
+    cancel_animation_task()
+    rgbled.strip_deinit()
+
+# -----------------------------------------------------------------------------
+# tasks
+
+async def blink(led, period_s):
+
+    while True:
+        led.on()
+        await asyncio.sleep(period_s)
+        led.off()
+        await asyncio.sleep(period_s)
 
 async def rainbow_animation():
 
@@ -66,7 +74,7 @@ async def fire_animation():
 
 async def breathe_animation():
     # TODO
-    return
+    pass
 
 
 # -----------------------------------------------------------------------------
@@ -74,7 +82,7 @@ async def breathe_animation():
 
 def handle_main_page(conn, body):
 
-    html_file = 'index.html'
+    html_file = 'page.html'
 
     headers = {
         'Content-Type': 'text/html',
@@ -109,23 +117,26 @@ def handle_post_rgb(conn, body):
     }
     conn.write(httpserver.create_header(headers, 204))
 
-def handle_timer(conn, body):
+def handle_post_timer(conn, body):
 
     json_timer = json.loads(body)
     timer_value_seconds = json_timer['seconds'];
 
-    tim = Timer(-1)
+    global turn_off_tim
 
     if (timer_value_seconds > 0):
-        tim.init(period = json_timer['seconds'] * 1000, mode=Timer.ONE_SHOT, callback = lambda t: rgbled.strip_set_smooth(0, 0, 0))
+        turn_off_tim.init(period = timer_value_seconds * 1000, mode=Timer.ONE_SHOT, callback = lambda t: turn_off_light())
     else:
-        tim.deinit()
+        turn_off_tim.deinit()
 
     headers = {
         'Connection': 'close',
         'ETag': '\"' + str(body) + '\"'
     }
     conn.write(httpserver.create_header(headers, 204))
+
+def handle_get_timer(conn, body):
+    pass
 
 def handle_rainbow(conn, body):
 
@@ -168,6 +179,30 @@ def handle_favicon(conn, body):
     }
     conn.write(httpserver.create_header(headers, 200))
     conn.write(read_file(ico_file))
+
+def handle_javascript(conn, body):
+
+    js_file = 'script.js'
+
+    headers = {
+        'Content-Type': 'text/javascript',
+        'Content-Length': str(os.stat(js_file)[6]),
+        'Connection': 'close'
+    }
+    conn.write(httpserver.create_header(headers, 200))
+    conn.write(read_file(js_file))
+
+def handle_css_styles(conn, body):
+
+    css_file = 'styles.css'
+
+    headers = {
+        'Content-Type': 'text/css',
+        'Content-Length': str(os.stat(css_file)[6]),
+        'Connection': 'close'
+    }
+    conn.write(httpserver.create_header(headers, 200))
+    conn.write(read_file(css_file))
 
 def handle_not_found(conn, body):
 
@@ -212,12 +247,15 @@ async def main():
 
     httpserver.register_callback('GET', '/', handle_main_page)
     httpserver.register_callback('GET', '/favicon.ico', handle_favicon)
+    httpserver.register_callback('GET', '/script.js', handle_javascript)
+    httpserver.register_callback('GET', '/styles.css', handle_css_styles)
     httpserver.register_callback('POST', '/rainbow', handle_rainbow)
     httpserver.register_callback('POST', '/fire', handle_fire)
     httpserver.register_callback('POST', '/breathe', handle_breathe)
     httpserver.register_callback('GET', '/rgb', handle_get_rgb)
     httpserver.register_callback('POST', '/rgb', handle_post_rgb)
-    httpserver.register_callback('POST', '/timer', handle_timer)
+    httpserver.register_callback('POST', '/timer', handle_post_timer)
+    httpserver.register_callback('GET', '/timer', handle_get_timer)
 
     httpserver.register_not_found_callback(handle_not_found)
     httpserver.register_unauthorized_callback(handle_unauthorized)
