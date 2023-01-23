@@ -9,7 +9,7 @@ import uasyncio as asyncio
 
 # -----------------------------------------------------------------------------
 # logging
-_log_enabled = True
+_log_enabled = False
 
 def _log(*args, **kwargs):
 

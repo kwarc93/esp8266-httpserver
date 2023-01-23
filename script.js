@@ -31,10 +31,10 @@ window.onload = function() {
 	var timerValue = document.getElementById("timer-value")
 	var sliderInput = document.getElementById("timer-slider")
 
-	// Show slider value
+	// Show slider value in minutes
 	timerValue.textContent = sliderInput.value
 	sliderInput.addEventListener("input", (event) => {
-		timerValueCounterSeconds = event.target.value * 1
+		timerValueCounterSeconds = event.target.value * 60
 		timerValue.textContent = event.target.value
 	})
 }
@@ -64,7 +64,7 @@ function timerBtnHandler() {
 	function clearTimer() {
 		clearInterval(oneSecondInterval)
 		timerValueCounterSeconds = 0
-		time.textContent = slider.value
+		time.textContent = 0
 		icon.className = "bi bi-clock"
 		slider.disabled = false
 		slider.step = 5
@@ -89,14 +89,14 @@ function timerBtnHandler() {
 		/* Start timer to countdown every 1 second */
 		oneSecondInterval = setInterval(function() {
 			timerValueCounterSeconds = timerValueCounterSeconds - 1
-			slider.value = Math.round(timerValueCounterSeconds / 1)
+			slider.value = Math.round(timerValueCounterSeconds / 60)
 			time.textContent = slider.value
 
 			if (timerValueCounterSeconds <= 0) {
 				colorPicker.color.set("#000000")
 				clearTimer()
 			}
-	}, 1000);
+		}, 1000);
 
 	} else {
 		clearTimer()
