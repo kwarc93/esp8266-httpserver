@@ -93,6 +93,9 @@ def create_header(headers, status):
     
     for name in headers:
         header += name + colon + headers[name] + lend
+
+    # Server does not support persistent connections
+    header += 'Connection: close' + lend
     header += lend
 
     return header
@@ -160,6 +163,8 @@ async def _conn_handler(reader, writer):
         _log('OSError:', e)
     finally:
         _log('closing connection')
+        gc.collect()
+        gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
         _log('free heap: ', gc.mem_free())
         await _conn_close(writer)
 

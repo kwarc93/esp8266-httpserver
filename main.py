@@ -86,8 +86,7 @@ def handle_main_page(conn, body):
 
     headers = {
         'Content-Type': 'text/html',
-        'Content-Length': str(os.stat(html_file)[6]),
-        'Connection': 'close'
+        'Content-Length': str(os.stat(html_file)[6])
     }
     conn.write(httpserver.create_header(headers, 200))
     conn.write(read_file(html_file))
@@ -99,8 +98,7 @@ def handle_get_rgb(conn, body):
 
     headers = {
         'Content-Type': 'application/json',
-        'Content-Length': str(len(json_str)),
-        'Connection': 'close'
+        'Content-Length': str(len(json_str))
     }
     conn.write(httpserver.create_header(headers, 200))
     conn.write(json_str)
@@ -112,7 +110,6 @@ def handle_post_rgb(conn, body):
     rgbled.strip_set_smooth(json_rgb['r'], json_rgb['g'], json_rgb['b'])
 
     headers = {
-        'Connection': 'close',
         'ETag': '\"' + str(body) + '\"'
     }
     conn.write(httpserver.create_header(headers, 204))
@@ -130,7 +127,6 @@ def handle_post_timer(conn, body):
         turn_off_tim.deinit()
 
     headers = {
-        'Connection': 'close',
         'ETag': '\"' + str(body) + '\"'
     }
     conn.write(httpserver.create_header(headers, 204))
@@ -143,7 +139,6 @@ def handle_rainbow(conn, body):
     run_animation_task(rainbow_animation)
 
     headers = {
-        'Connection': 'close',
         'ETag': '\"' + str(body) + '\"'
     }
     conn.write(httpserver.create_header(headers, 204))
@@ -153,7 +148,6 @@ def handle_fire(conn, body):
     run_animation_task(fire_animation)
 
     headers = {
-        'Connection': 'close',
         'ETag': '\"' + str(body) + '\"'
     }
     conn.write(httpserver.create_header(headers, 204))
@@ -163,7 +157,6 @@ def handle_breathe(conn, body):
     run_animation_task(breathe_animation)
 
     headers = {
-        'Connection': 'close',
         'ETag': '\"' + str(body) + '\"'
     }
     conn.write(httpserver.create_header(headers, 204))
@@ -174,8 +167,7 @@ def handle_favicon(conn, body):
 
     headers = {
         'Content-Type': 'image/x-icon',
-        'Content-Length': str(os.stat(ico_file)[6]),
-        'Connection': 'close'
+        'Content-Length': str(os.stat(ico_file)[6])
     }
     conn.write(httpserver.create_header(headers, 200))
     conn.write(read_file(ico_file))
@@ -186,8 +178,7 @@ def handle_javascript(conn, body):
 
     headers = {
         'Content-Type': 'text/javascript',
-        'Content-Length': str(os.stat(js_file)[6]),
-        'Connection': 'close'
+        'Content-Length': str(os.stat(js_file)[6])
     }
     conn.write(httpserver.create_header(headers, 200))
     conn.write(read_file(js_file))
@@ -198,8 +189,7 @@ def handle_css_styles(conn, body):
 
     headers = {
         'Content-Type': 'text/css',
-        'Content-Length': str(os.stat(css_file)[6]),
-        'Connection': 'close'
+        'Content-Length': str(os.stat(css_file)[6])
     }
     conn.write(httpserver.create_header(headers, 200))
     conn.write(read_file(css_file))
@@ -210,8 +200,7 @@ def handle_not_found(conn, body):
 
     headers = {
         'Content-Type': 'text/html',
-        'Content-Length': str(os.stat(html_file)[6]),
-        'Connection': 'close'
+        'Content-Length': str(os.stat(html_file)[6])
     }
     conn.write(httpserver.create_header(headers, 404))
     conn.write(read_file(html_file))
