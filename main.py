@@ -40,11 +40,11 @@ def run_animation_task(task):
 
 turn_off_tim = Timer(-1)
 
-def turn_off_light():
+async def turn_off_lights():
 
     global turn_off_tim
     cancel_animation_task()
-    rgbled.strip_deinit()
+    rgbled.strip_set(0, 0, 0)
 
 # -----------------------------------------------------------------------------
 # tasks
@@ -125,7 +125,7 @@ def handle_post_timer(conn, body):
     global turn_off_tim
 
     if (timer_value_seconds > 0):
-        turn_off_tim.init(period = timer_value_seconds * 1000, mode=Timer.ONE_SHOT, callback = lambda t: turn_off_light())
+        turn_off_tim.init(period = timer_value_seconds * 1000, mode=Timer.ONE_SHOT, callback = lambda t: asyncio.create_task(turn_off_lights()))
     else:
         turn_off_tim.deinit()
 

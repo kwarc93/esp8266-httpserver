@@ -50,13 +50,6 @@ def strip_init(pin, leds):
     _led_strip_drv.fill((0, 0, 0))
     _led_strip_drv.write()
 
-def strip_deinit():
-
-    global _led_strip_color
-    _led_strip_color = bytearray((0, 0, 0))
-    _led_strip_drv.fill(_led_strip_color)
-    _led_strip_drv.write()
-
 def strip_set(r, g, b):
 
     drv = _led_strip_drv
