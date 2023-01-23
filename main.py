@@ -27,7 +27,8 @@ def handle_http_file(conn, body, file, content_type, code):
 
     headers = {
         'Content-Type': content_type,
-        'Content-Length': str(get_file_size(file))
+        'Content-Length': str(get_file_size(file)),
+        'Cache-Control': 'max-age=86400'
     }
     conn.write(httpserver.create_header(headers, code))
     conn.write(read_file(file))
