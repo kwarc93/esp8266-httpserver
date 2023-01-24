@@ -1,7 +1,6 @@
 # -----------------------------------------------------------------------------
 # imports
 
-import gc
 import os
 import network
 import binascii
@@ -67,11 +66,12 @@ def _authenticate(authorization_header):
     return username == _usr_name and password == _usr_pwd
 
 # -----------------------------------------------------------------------------
-# callbacks
+# handlers
 
 _handlers = {}
+_not_found_handler = lambda conn, body: None
 
-def add_handler(method, url, callback):
+def _add_handler(method, url, callback):
 
     global _handlers
 
@@ -79,20 +79,23 @@ def add_handler(method, url, callback):
         _handlers[method] = {}
     _handlers[method][url] = callback
 
-def add_not_found_handler(callback):
-    add_handler('404', '404', callback)
+def handle(method, url):
+    # Decorator for add_handler
+    def _handle(f):
+        _add_handler(method, url, f)
+        return f
+    return _handle
 
-def add_unauthorized_handler(callback):
-    add_handler('401', '401', callback)
+def not_found():
+    # Decorator for _not_found_handler
+    def _not_found(f):
+        global _not_found_handler
+        _not_found_handler = f
+        return f
+    return _not_found
 
 # -----------------------------------------------------------------------------
 # utils
-
-def _gc_cleanup():
-
-    gc.collect()
-    gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
-    _log('free heap: ', gc.mem_free())
 
 def create_header(headers, status):
  
@@ -111,14 +114,13 @@ def create_header(headers, status):
 
 async def _conn_close(writer):
 
+    _log('closing connection')
     await writer.drain()
     writer.close()
     await writer.wait_closed()
 
 async def _conn_handler(reader, writer):
  
-    _gc_cleanup()
-
     try:
         addr = writer.get_extra_info('peername')
         _log('client connected, address:', addr)
@@ -140,8 +142,6 @@ async def _conn_handler(reader, writer):
             if b'Authorization' in header:
                 authorized = _authenticate(header.decode())
 
-        _gc_cleanup()
-
         # get body (if available)
         body = await reader.readexactly(body_length)
 
@@ -158,27 +158,22 @@ async def _conn_handler(reader, writer):
         _log('body: ', body, body_length)
 
         if not authorized:
-            if '401' in _handlers and '401' in _handlers['401']:
-                _handlers['401']['401'](writer, body.decode('utf-8'))
+            headers = { 'WWW-Authenticate': 'Basic realm="general", charset="UTF-8"' }
+            writer.write(create_header(headers, 401))
             _log('unauthorized')
             await _conn_close(writer)
             return
 
-        _gc_cleanup()
-
         if method in _handlers and url in _handlers[method]:
-            _handlers[method][url](writer, body.decode('utf-8'))
-        elif '404' in _handlers and '404' in _handlers['404']:
-            _handlers['404']['404'](writer, body.decode('utf-8'))
+            await _handlers[method][url](writer, body.decode('utf-8'))
         else:
             _log('no handler for request')
+            await _not_found_handler(writer, '')
 
     except OSError as e:
         _log('OSError:', e)
     finally:
-        _log('closing connection')
         await _conn_close(writer)
-        _gc_cleanup()
 
 async def start():
 

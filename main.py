@@ -18,20 +18,13 @@ from machine import Timer
 def get_file_size(file):
     return os.stat(file)[6]
 
-def read_file(file):
-
-    with open(file, 'rb') as f:
-        return f.read()
-
-def handle_http_file(conn, body, file, content_type, code):
-
-    headers = {
-        'Content-Type': content_type,
-        'Content-Length': str(get_file_size(file)),
-        'Cache-Control': 'max-age=86400'
-    }
-    conn.write(httpserver.create_header(headers, code))
-    conn.write(read_file(file))
+def read_file_in_chunks(file, chunk_size = 1024):
+    while True:
+        chunk = file.read(chunk_size)
+        if not chunk:
+            break
+        else:
+            yield chunk
     
 animation_task = None
 
@@ -98,27 +91,42 @@ async def breathe_animation():
 # -----------------------------------------------------------------------------
 # http handlers
 
-def handle_main_page(conn, body):
+async def handle_http_file(conn, file, content_type, code = 200):
 
-    handle_http_file(conn, body, 'page.html', 'text/html', 200)
+    headers = {
+        'Content-Type': content_type,
+        'Content-Length': str(get_file_size(file)),
+        'Cache-Control': 'max-age=86400'
+    }
+    conn.write(httpserver.create_header(headers, code))
 
-def handle_favicon(conn, body):
+    with open(file, 'rb') as f:
+        for chunk in read_file_in_chunks(f):
+            conn.write(chunk)
+            await conn.drain()
 
-    handle_http_file(conn, body, 'favicon.ico', 'image/x-icon', 200)
+@httpserver.handle('GET', '/')
+async def handle_main_page(conn, body):
 
-def handle_javascript(conn, body):
+    await handle_http_file(conn, 'page.html', 'text/html')
 
-    handle_http_file(conn, body, 'script.js', 'text/javascript', 200)
+@httpserver.handle('GET', '/favicon.ico')
+async def handle_favicon(conn, body):
 
-def handle_css_styles(conn, body):
+    await handle_http_file(conn, 'favicon.ico', 'image/x-icon')
 
-    handle_http_file(conn, body, 'styles.css', 'text/css', 200)
+@httpserver.handle('GET', '/script.js')
+async def handle_javascript(conn, body):
 
-def handle_not_found(conn, body):
-    
-    handle_http_file(conn, body, '404.html', 'text/html', 404)
+    await handle_http_file(conn, 'script.js', 'text/javascript')
 
-def handle_get_rgb(conn, body):
+@httpserver.handle('GET', '/styles.css')
+async def handle_css_styles(conn, body):
+
+    await handle_http_file(conn, 'styles.css', 'text/css')
+
+@httpserver.handle('GET', '/rgb')
+async def handle_get_rgb(conn, body):
 
     rgb = rgbled.strip_get()
     json_str = json.dumps({'r':rgb[0],'g':rgb[1],'b':rgb[2]})
@@ -130,7 +138,8 @@ def handle_get_rgb(conn, body):
     conn.write(httpserver.create_header(headers, 200))
     conn.write(json_str)
 
-def handle_post_rgb(conn, body):
+@httpserver.handle('POST', '/rgb')
+async def handle_post_rgb(conn, body):
 
     cancel_animation_task()
     json_rgb = json.loads(body)
@@ -141,7 +150,8 @@ def handle_post_rgb(conn, body):
     }
     conn.write(httpserver.create_header(headers, 204))
 
-def handle_post_timer(conn, body):
+@httpserver.handle('POST', '/timer')
+async def handle_post_timer(conn, body):
 
     global shutdown_timer
     global shutdown_timer_remaining_seconds
@@ -158,7 +168,8 @@ def handle_post_timer(conn, body):
     }
     conn.write(httpserver.create_header(headers, 204))
 
-def handle_get_timer(conn, body):
+@httpserver.handle('GET', '/timer')
+async def handle_get_timer(conn, body):
 
     global shutdown_timer_remaining_seconds
     json_str = json.dumps({'seconds':shutdown_timer_remaining_seconds})
@@ -170,7 +181,8 @@ def handle_get_timer(conn, body):
     conn.write(httpserver.create_header(headers, 200))
     conn.write(json_str)
 
-def handle_rainbow(conn, body):
+@httpserver.handle('POST', '/rainbow')
+async def handle_rainbow(conn, body):
 
     run_animation_task(rainbow_animation)
 
@@ -179,7 +191,8 @@ def handle_rainbow(conn, body):
     }
     conn.write(httpserver.create_header(headers, 204))
 
-def handle_fire(conn, body):
+@httpserver.handle('POST', '/fire')
+async def handle_fire(conn, body):
 
     run_animation_task(fire_animation)
 
@@ -188,7 +201,8 @@ def handle_fire(conn, body):
     }
     conn.write(httpserver.create_header(headers, 204))
 
-def handle_breathe(conn, body):
+@httpserver.handle('POST', '/breathe')
+async def handle_breathe(conn, body):
         
     run_animation_task(breathe_animation)
 
@@ -197,13 +211,11 @@ def handle_breathe(conn, body):
     }
     conn.write(httpserver.create_header(headers, 204))
 
-def handle_unauthorized(conn, body):
-
-    headers = {
-        'WWW-Authenticate': 'Basic realm="general", charset="UTF-8"'
-    }
-    conn.write(httpserver.create_header(headers, 401))
-
+@httpserver.not_found()
+async def handle_not_found(conn, body):
+    
+    await handle_http_file(conn, '404.html', 'text/html', 404)
+    
 # -----------------------------------------------------------------------------
 # 'main'
 
@@ -225,21 +237,6 @@ async def main():
 
     httpserver.init(credentials.wifi_ssid, credentials.wifi_pwd)
     httpserver.enable_basic_auth(credentials.usr_name, credentials.usr_pwd)
-
-    httpserver.add_handler('GET', '/', handle_main_page)
-    httpserver.add_handler('GET', '/favicon.ico', handle_favicon)
-    httpserver.add_handler('GET', '/script.js', handle_javascript)
-    httpserver.add_handler('GET', '/styles.css', handle_css_styles)
-    httpserver.add_handler('POST', '/rainbow', handle_rainbow)
-    httpserver.add_handler('POST', '/fire', handle_fire)
-    httpserver.add_handler('POST', '/breathe', handle_breathe)
-    httpserver.add_handler('GET', '/rgb', handle_get_rgb)
-    httpserver.add_handler('POST', '/rgb', handle_post_rgb)
-    httpserver.add_handler('POST', '/timer', handle_post_timer)
-    httpserver.add_handler('GET', '/timer', handle_get_timer)
-
-    httpserver.add_not_found_handler(handle_not_found)
-    httpserver.add_unauthorized_handler(handle_unauthorized)
 
     blink_task = asyncio.create_task(blink(status_led, 0.5))
 
