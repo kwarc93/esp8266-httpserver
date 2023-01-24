@@ -11,12 +11,12 @@ import uasyncio as asyncio
 
 _log_enabled = False
 
-def _log(*args, **kwargs):
+def _logger(*args, **kwargs):
 
-    if not _log_enabled:
-        return
     header = '[httpserver]'
     print(header, *args, **kwargs, end='\r\n')
+
+_log = _logger if _log_enabled else lambda *args, **kwargs: None
 
 # -----------------------------------------------------------------------------
 # initialization
@@ -69,7 +69,7 @@ def _authenticate(authorization_header):
 # handlers
 
 _handlers = {}
-_not_found_handler = lambda conn, body: None
+_not_found_handler = None
 
 def _add_handler(method, url, callback):
 
@@ -168,7 +168,7 @@ async def _conn_handler(reader, writer):
             await _handlers[method][url](writer, body.decode('utf-8'))
         else:
             _log('no handler for request')
-            await _not_found_handler(writer, '')
+            await _not_found_handler(writer, '') if _not_found_handler else None
 
     except OSError as e:
         _log('OSError:', e)
