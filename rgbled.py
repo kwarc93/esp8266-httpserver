@@ -1,5 +1,5 @@
 import math
-import time
+import random
 import pwm_lightness
 from machine import Pin, PWM
 from neopixel import NeoPixel
@@ -47,19 +47,51 @@ def strip_init(pin, leds):
     _cie_lut_8b = pwm_lightness.get_pwm_table(255, 255)
 
     _led_strip_drv = NeoPixel(Pin(pin, Pin.OUT), leds)
+    _led_strip_drv.fill((0, 0, 0))
+    _led_strip_drv.write()
 
 def strip_set(r, g, b):
 
     drv = _led_strip_drv
     cie = _cie_lut_8b
-    leds = range(drv.n)
 
-    for led in leds:
-        drv[led] = (cie[r], cie[g], cie[b])
+    global _led_strip_color
+    _led_strip_color = bytearray((r, g, b))
+
+    drv.fill((cie[r], cie[g], cie[b]))
     drv.write()
 
 def strip_get():
     return _led_strip_color
+
+def strip_set_smooth(r, g, b):
+
+    drv = _led_strip_drv
+    cie = _cie_lut_8b
+
+    global _led_strip_color
+    prev_color = _led_strip_color
+    new_color = bytearray((r, g, b))
+
+    if new_color == prev_color:
+        strip_set(r, g, b)
+        return
+
+    diff = (new_color[0] - prev_color[0], new_color[1] - prev_color[1], new_color[2] - prev_color[2])
+    length = math.sqrt(diff[0] ** 2 + diff[1] ** 2 + diff[2] ** 2)
+    
+    cosb_sina = diff[0] / length
+    cosb_cosa = diff[1] / length
+    sinb = diff[2] / length
+
+    steps = range(1, int(round(length)) + 1)
+    for step in steps:
+        new_color[0] = int(prev_color[0] + round(step * cosb_sina))
+        new_color[1] = int(prev_color[1] + round(step * cosb_cosa))
+        new_color[2] = int(prev_color[2] + round(step * sinb))
+        drv.fill((cie[new_color[0]], cie[new_color[1]], cie[new_color[2]]))
+        drv.write()
+    _led_strip_color = new_color
 
 def _hsv2rgb(h, s, v):
 
@@ -71,7 +103,7 @@ def _hsv2rgb(h, s, v):
 
     return (int(f(5) * 255), int(f(3) * 255), int(f(1) * 255))
 
-def strip_rainbow():
+def strip_rainbow(hue_offset = 0):
 
     drv = _led_strip_drv
     cie = _cie_lut_8b
@@ -80,42 +112,23 @@ def strip_rainbow():
     hue_step = 360 / drv.n
     
     for led in leds:
-        avg_hue = hue_step * (2 * led + 1) / 2
+        # avg_hue = (hue_offset + hue_step * (2 * led + 1) / 2) % 360
+        avg_hue = (hue_offset + hue_step * led) % 360
         (r, g, b) = _hsv2rgb(avg_hue, 1.0, 1.0)
         drv[led] = (cie[r], cie[g], cie[b])
     drv.write()
+    
 
-def strip_set_smooth(r, g, b):
+def strip_fire(i = 0):
 
     drv = _led_strip_drv
     cie = _cie_lut_8b
     leds = range(drv.n)
 
-    global _led_strip_color
-    prev_color = _led_strip_color
-    new_color = bytearray((g, r, b))
+    # color of fire
+    rgb = (217, 109, 0)
 
-    if new_color == prev_color:
-        return
-
-    diff = (new_color[0] - prev_color[0], new_color[1] - prev_color[1], new_color[2] - prev_color[2])
-    length = math.sqrt(diff[0] ** 2 + diff[1] ** 2 + diff[2] ** 2)
-    
-    cosb_sina = diff[0] / length
-    cosb_cosa = diff[1] / length
-    sinb = diff[2] / length
-
-    color = bytearray(3)
-    steps = range(1, int(round(length)) + 1)
-    for step in steps:
-        new_color[0] = int(prev_color[0] + round(step * cosb_sina))
-        new_color[1] = int(prev_color[1] + round(step * cosb_cosa))
-        new_color[2] = int(prev_color[2] + round(step * sinb))
-        color[0] = cie[new_color[0]]
-        color[1] = cie[new_color[1]]
-        color[2] = cie[new_color[2]]
-        for led in leds:
-            led *= 3
-            drv.buf[led : led + 3] = color
-        drv.write()
-    _led_strip_color = new_color
+    for led in leds:
+        flicker = random.randint(0, 50)
+        drv[led] = tuple([cie[x - flicker] if x-flicker >= 0 else 0 for x in rgb])
+    drv.write()

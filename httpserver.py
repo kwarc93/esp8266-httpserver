@@ -1,55 +1,43 @@
 # -----------------------------------------------------------------------------
 # imports
 
-import gc
 import os
 import network
-import socket
 import binascii
+import uasyncio as asyncio
 
 # -----------------------------------------------------------------------------
 # logging
+
 _log_enabled = False
 
-def _log(*args, **kwargs):
+def _logger(*args, **kwargs):
 
-    if not _log_enabled:
-        return
     header = '[httpserver]'
     print(header, *args, **kwargs, end='\r\n')
 
+_log = _logger if _log_enabled else lambda *args, **kwargs: None
+
 # -----------------------------------------------------------------------------
 # initialization
-_server = None
+
+_wifi_ssid = None
+_wifi_pwd = None
 
 def init(wifi_ssid, wifi_pwd):
 
-    ap = network.WLAN(network.AP_IF)
-    ap.active(False)
+    global _wifi_ssid
+    global _wifi_pwd
 
-    sta = network.WLAN(network.STA_IF)
-    sta.active(True)
-    sta.config(dhcp_hostname = 'wifirgb')
-    _log(sta.config('dhcp_hostname'))
-
-    if not sta.isconnected():
-        _log('connecting to network...')
-        sta.connect(wifi_ssid, wifi_pwd)
-        while not sta.isconnected():
-            pass
-    _log('connected')
-    _log('network config: ', sta.ifconfig())
-
-    global _server
-    _server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    _server.bind(socket.getaddrinfo('0.0.0.0', 80)[0][-1])
-    _server.listen(3)
+    _wifi_ssid = wifi_ssid
+    _wifi_pwd = wifi_pwd
 
 # -----------------------------------------------------------------------------
 # authentication
+
 _basic_auth_enabled = False
-_usr_name = ''
-_usr_pwd = ''
+_usr_name = None
+_usr_pwd = None
 
 def enable_basic_auth(usr_name, usr_pwd):
 
@@ -78,104 +66,134 @@ def _authenticate(authorization_header):
     return username == _usr_name and password == _usr_pwd
 
 # -----------------------------------------------------------------------------
-# callbacks
-_callbacks = {}
+# handlers
 
-def register_callback(method, url, callback):
+_handlers = {}
+_not_found_handler = None
 
-    global _callbacks
+def _add_handler(method, url, callback):
 
-    if method not in _callbacks:
-        _callbacks[method] = {}
-    _callbacks[method][url] = callback
+    global _handlers
 
-def register_not_found_callback(callback):
-    register_callback('404', '404', callback)
+    if method not in _handlers:
+        _handlers[method] = {}
+    _handlers[method][url] = callback
 
-def register_unauthorized_callback(callback):
-    register_callback('401', '401', callback)
+def handle(method, url):
+    # Decorator for add_handler
+    def _handle(f):
+        _add_handler(method, url, f)
+        return f
+    return _handle
+
+def not_found():
+    # Decorator for _not_found_handler
+    def _not_found(f):
+        global _not_found_handler
+        _not_found_handler = f
+        return f
+    return _not_found
 
 # -----------------------------------------------------------------------------
 # utils
 
 def create_header(headers, status):
+ 
+    header = 'HTTP/1.1 {} OK\r\n Server: {}, Micropython {}\r\n'.format(str(status), getattr(os.uname(), 'machine'), getattr(os.uname(), 'version'))
 
-    colon = ': '
-    lend = '\r\n'
-    header = 'HTTP/1.1 ' + str(status) + ' OK\r\n'
-    header += 'Server: ' + getattr(os.uname(), 'machine') + ', Micropython ' + getattr(os.uname(), 'version') + '\r\n'
-    
     for name in headers:
-        header += name + colon + headers[name] + lend
-    header += lend
+        header += '{}: {}\r\n'.format(name, headers[name])
+
+    # Server does not support persistent connections
+    header += 'Connectrion: close\r\n\r\n'
 
     return header
     
 # -----------------------------------------------------------------------------
 # listening
 
-def listen():
+async def _conn_close(writer):
 
-    global _server
-    
-    _log('listening...')
+    _log('closing connection')
+    await writer.drain()
+    writer.close()
+    await writer.wait_closed()
 
-    while True:
+async def _conn_handler(reader, writer):
+ 
+    try:
+        addr = writer.get_extra_info('peername')
+        _log('client connected, address:', addr)
 
-        try:
-            conn, addr = _server.accept()
-            _log('client connected, address:', addr)
+        # if basic authentication is enabled dont accept clients without credentials 
+        authorized = not _basic_auth_enabled
 
-            conn.settimeout(10.0)
+        # get start line
+        start = await reader.readline()
 
-            # if basic authentication is enabled dont accept clients without credentials 
-            authorized = not _basic_auth_enabled
+        # get headers
+        body_length = 0
+        while True:
+            header = await reader.readline()
+            if header == b'\r\n' or header == b'' or header == None:
+                break
+            if b'Content-Length' in header:
+                body_length = int(''.join(list(filter(str.isdigit, header.decode()))))
+            if b'Authorization' in header:
+                authorized = _authenticate(header.decode())
 
-            # get start line
-            start = conn.readline()
+        # get body (if available)
+        body = await reader.readexactly(body_length)
 
-            # get headers
-            body_length = 0
-            while True:
-                header = conn.readline()
-                if header == b'\r\n' or header == b'' or header == None:
-                    break
-                if b'Content-Length' in header:
-                    body_length = int(''.join(list(filter(str.isdigit, header.decode()))))
-                if b'Authorization' in header:
-                    authorized = _authenticate(header.decode())
+        start = start.decode().split(' ')
+        if len(start) != 3:
+            await _conn_close(writer)
+            return
 
-            #get body (if available)
-            body = conn.read(body_length)
+        (method, url, version) = start
 
-            start = start.decode().split(' ')
-            if len(start) != 3:
-                continue
+        _log('method: ', method)
+        _log('url: ', url)
+        _log('version: ', version)
+        _log('body: ', body, body_length)
 
-            (method, url, version) = start
+        if not authorized:
+            headers = { 'WWW-Authenticate': 'Basic realm="general", charset="UTF-8"' }
+            writer.write(create_header(headers, 401))
+            _log('unauthorized')
+            await _conn_close(writer)
+            return
 
-            _log('method: ', method)
-            _log('url: ', url)
-            _log('version: ', version)
-            _log('body: ', body, body_length)
+        if method in _handlers and url in _handlers[method]:
+            await _handlers[method][url](writer, body.decode('utf-8'))
+        else:
+            _log('no handler for request')
+            await _not_found_handler(writer, '') if _not_found_handler else None
 
-            if not authorized:
-                if '401' in _callbacks and '401' in _callbacks['401']:
-                    _callbacks['401']['401'](conn, body.decode('utf-8'))
-                _log('unauthorized')
-                continue
+    except OSError as e:
+        _log('OSError:', e)
+    finally:
+        await _conn_close(writer)
 
-            if method in _callbacks and url in _callbacks[method]:
-                _callbacks[method][url](conn, body.decode('utf-8'))
-            elif '404' in _callbacks and '404' in _callbacks['404']:
-                _callbacks['404']['404'](conn, body.decode('utf-8'))
-            else:
-                _log('no handler for request')
+async def start():
 
-        except OSError as e:
-            _log('OSError:', e)
-        finally:
-            _log('closing connection')
-            _log('free heap: ', gc.mem_free())
-            conn.close()
+    ap = network.WLAN(network.AP_IF)
+    ap.active(False)
+
+    sta = network.WLAN(network.STA_IF)
+    sta.active(True)
+    sta.config(dhcp_hostname = 'wifirgb')
+    _log(sta.config('dhcp_hostname'))
+
+    if not sta.isconnected():
+        _log('connecting to network...')
+        sta.connect(_wifi_ssid, _wifi_pwd)
+        while not sta.isconnected():
+            await asyncio.sleep(0.1)
+
+    port = 80;
+    addr = sta.ifconfig()[0]
+    _log('connected, listening on:', addr + ':' + str(port))
+
+    return asyncio.create_task(asyncio.start_server(_conn_handler, addr, port, backlog = 3))
         

@@ -2,6 +2,7 @@
 import esp
 esp.osdebug(None)
 import uos, machine
+machine.freq(160000000)
 #uos.dupterm(None, 1) # disable REPL on UART(0)
 import gc
 #import webrepl
