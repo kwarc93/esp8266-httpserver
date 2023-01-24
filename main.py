@@ -48,11 +48,19 @@ def run_animation_task(task):
         animation_task.cancel()
     animation_task = asyncio.create_task(task())
 
-turn_off_tim = Timer(-1)
+shutdown_timer = Timer(-1)
+shutdown_timer_remaining_seconds = 0
 
-async def turn_off_lights():
+def shutdown_timer_callback(timer):
 
-    global turn_off_tim
+    global shutdown_timer_remaining_seconds
+    shutdown_timer_remaining_seconds -= 1
+    if (shutdown_timer_remaining_seconds == 0):
+        asyncio.create_task(shutdown())
+
+async def shutdown():
+
+    global shutdown_timer
     cancel_animation_task()
     rgbled.strip_set(0, 0, 0)
 
@@ -135,15 +143,15 @@ def handle_post_rgb(conn, body):
 
 def handle_post_timer(conn, body):
 
-    json_timer = json.loads(body)
-    timer_value_seconds = json_timer['seconds'];
+    global shutdown_timer
+    global shutdown_timer_remaining_seconds
 
-    global turn_off_tim
+    shutdown_timer_remaining_seconds = json.loads(body)['seconds']
 
-    if (timer_value_seconds > 0):
-        turn_off_tim.init(period = timer_value_seconds * 1000, mode=Timer.ONE_SHOT, callback = lambda t: asyncio.create_task(turn_off_lights()))
+    if (shutdown_timer_remaining_seconds > 0):
+        shutdown_timer.init(period = 1000, mode=Timer.PERIODIC, callback = shutdown_timer_callback)
     else:
-        turn_off_tim.deinit()
+        shutdown_timer.deinit()
 
     headers = {
         'ETag': '\"' + str(body) + '\"'
@@ -151,7 +159,16 @@ def handle_post_timer(conn, body):
     conn.write(httpserver.create_header(headers, 204))
 
 def handle_get_timer(conn, body):
-    pass
+
+    global shutdown_timer_remaining_seconds
+    json_str = json.dumps({'seconds':shutdown_timer_remaining_seconds})
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Content-Length': str(len(json_str))
+    }
+    conn.write(httpserver.create_header(headers, 200))
+    conn.write(json_str)
 
 def handle_rainbow(conn, body):
 
@@ -191,7 +208,7 @@ def handle_unauthorized(conn, body):
 # 'main'
 
 async def main():
-    print("--- main.py ---")
+    print('--- main.py ---')
 
     # init status LED
     status_led = Pin(4, Pin.OUT)

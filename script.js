@@ -1,41 +1,45 @@
 // Global variables
 var colorPicker
 var oneSecondInterval
-var timerValueCounterSeconds = 0
+var shutDownDate = 0
+var serverTimerSeconds = 0
 
 window.onload = function() {
 	calcPageLook()
 
 	colorPicker = new iro.ColorPicker("#picker",
-		{
-			borderWidth: 2,
-			borderColor: "#f0f0f0",
-			wheelLightness: false, 
-		})
+	{
+		borderWidth: 2,
+		borderColor: "#d3d3d3",
+		wheelLightness: false, 
+	})
 	
 	colorPicker.on("input:end",
 	function(color) {
-		let xhr = new XMLHttpRequest()
-		xhr.open("POST", "/rgb", true)
-		xhr.setRequestHeader("Content-Type", "application/json")
-		xhr.send(JSON.stringify(color.rgb))
+		fetch("/rgb", {
+			method: "POST",
+			headers: {"Content-Type": "application/json"},
+			body: JSON.stringify(color.rgb)
+	  	})
 	})
 	
 	// Update the picker wheel
-	let xhr = new XMLHttpRequest()
-	xhr.open("GET", "/rgb")
-	xhr.responseType = "json"
-	xhr.onload = function() { colorPicker.color.set(xhr.response) }
-	xhr.send()
-
+	fetch("/rgb")
+	.then((response) => response.json())
+	.then((data) => colorPicker.color.set(data))
+	
+	// Update the shut down timer
 	var timerValue = document.getElementById("timer-value")
 	var sliderInput = document.getElementById("timer-slider")
 
-	// Show slider value in minutes
 	timerValue.textContent = sliderInput.value
-	sliderInput.addEventListener("input", (event) => {
-		timerValueCounterSeconds = event.target.value * 60
-		timerValue.textContent = event.target.value
+	sliderInput.addEventListener("input", (event) => {timerValue.textContent = event.target.value})
+
+	fetch("/timer")
+	.then((response) => response.json())
+	.then((data) => {
+		serverTimerSeconds = data.seconds
+		timerHandler()
 	})
 }
 
@@ -46,61 +50,76 @@ function ()
 });
 
 function runEffect(effect) {
-	let xhr = new XMLHttpRequest()
-    xhr.open("POST", "/" + effect, true)
-    xhr.setRequestHeader("Content-Length", "0")
-    xhr.send()
+	fetch("/" + effect, {
+		method: "POST",
+		headers: {"Content-Length": 0}
+	})
 }
 
-function timerBtnHandler() {
-	if (timerValueCounterSeconds <= 0) {
-		return
-	}
-
+function timerHandler() {
 	var icon = document.getElementById("timer-button-icon")
 	var slider = document.getElementById("timer-slider")
 	var time = document.getElementById("timer-value")
 
 	function clearTimer() {
 		clearInterval(oneSecondInterval)
-		timerValueCounterSeconds = 0
-		time.textContent = 0
+		serverTimerSeconds = 0
+		shutDownDate = 0
 		icon.className = "bi bi-clock"
+		time.textContent = 0
 		slider.disabled = false
 		slider.step = 5
 		slider.value = 0
 	}
 
-	function setCountdownTimerOnServer(timerValueSeconds) {
-		let xhr = new XMLHttpRequest()
-		xhr.open("POST", "/timer", true)
-		xhr.setRequestHeader("Content-Type", "application/json")
-		xhr.send(JSON.stringify({"seconds": timerValueSeconds}))
+	function setTimerOnServer(timerValueSeconds) {
+		fetch("/timer", {
+  			method: "POST",
+  			headers: {"Content-Type": "application/json"},
+  			body: JSON.stringify({seconds: timerValueSeconds})
+		})
 	}
 
-	/* Toggle timer */
-	if (icon.className === "bi bi-clock") {
+	function intervalHandler() {
+		const remainingTimeSeconds = Math.round((shutDownDate - Date.now()) / 1000)
+		slider.value = Math.round(remainingTimeSeconds / 60)
+		time.textContent = slider.value
+
+		if (remainingTimeSeconds <= 0) {
+			colorPicker.color.set("#000000")
+			clearTimer()
+		}
+	}
+
+	function enableTimer() {
 		icon.className = "bi bi-clock-history"
 		slider.disabled = true
 		slider.step = 1
 
-		setCountdownTimerOnServer(timerValueCounterSeconds)
+		if (serverTimerSeconds == 0) {
+			serverTimerSeconds = slider.value * 60
+			setTimerOnServer(serverTimerSeconds)
+		}
 
-		/* Start timer to countdown every 1 second */
-		oneSecondInterval = setInterval(function() {
-			timerValueCounterSeconds = timerValueCounterSeconds - 1
-			slider.value = Math.round(timerValueCounterSeconds / 60)
-			time.textContent = slider.value
+		shutDownDate = Date.now() + serverTimerSeconds * 1000
+		intervalHandler()
+		oneSecondInterval = setInterval(intervalHandler, 1000);
+	}
 
-			if (timerValueCounterSeconds <= 0) {
-				colorPicker.color.set("#000000")
-				clearTimer()
-			}
-		}, 1000);
+	function disableTimer() {
+		clearTimer()
+		setTimerOnServer(0)
+	}
+
+	if (serverTimerSeconds == 0 && slider.value == 0) {
+		return
+	}
+
+	if (shutDownDate == 0) {
+		enableTimer()
 
 	} else {
-		clearTimer()
-		setCountdownTimerOnServer(0)
+		disableTimer()
 	}
 }
 
@@ -113,7 +132,7 @@ function calcPageLook() {
 	const orientation = (screen.orientation || {}).type || screen.mozOrientation || screen.msOrientation
 	const oriLandscape = orientation.startsWith("landscape")
 
-	/* "Lock" the page look to portrait */
+	// "Lock" the page look to portrait
 	if (oriLandscape) {
 		document.body.setAttribute("style",
 		"transform: rotate(-90deg) translate(-50%, -50%);\
