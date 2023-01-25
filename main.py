@@ -70,11 +70,8 @@ async def blink(led, period_s):
 
 async def rainbow_animation():
 
-    hue_offset = 0
-
     while True:
-        rgbled.strip_rainbow(hue_offset)
-        hue_offset += 2
+        rgbled.strip_rainbow()
         await asyncio.sleep(0.01)
 
 async def fire_animation():
@@ -84,8 +81,13 @@ async def fire_animation():
         await asyncio.sleep(random.randint(10, 50) / 1000)
 
 async def breathe_animation():
-    # TODO
-    pass
+    
+    color = rgbled.strip_get()
+    rgbled.strip_breathe_setup(color[0], color[1], color[2])
+    
+    while True:
+        rgbled.strip_breathe()
+        await asyncio.sleep(0.01)
 
 
 # -----------------------------------------------------------------------------
