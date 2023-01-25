@@ -16,6 +16,7 @@ window.onload = function() {
 	
 	colorPicker.on("input:end",
 	function(color) {
+		document.documentElement.style.setProperty("--breathe-color", color.rgbString.slice(4, -1))
 		fetch("/rgb", {
 			method: "POST",
 			headers: {"Content-Type": "application/json"},
@@ -26,7 +27,10 @@ window.onload = function() {
 	// Update the picker wheel
 	fetch("/rgb")
 	.then((response) => response.json())
-	.then((data) => colorPicker.color.set(data))
+	.then((data) => {
+		colorPicker.color.set(data)
+		document.documentElement.style.setProperty("--breathe-color", colorPicker.color.rgbString.slice(4, -1))
+	})
 	
 	// Update the shut down timer
 	var timerValue = document.getElementById("timer-value")

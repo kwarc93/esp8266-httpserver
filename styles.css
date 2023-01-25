@@ -68,28 +68,41 @@
   padding: 0;
 }
 
-.animated_rainbow {
+.animated-rainbow {
 	text-align: center;
 	background-size: 200%;
 	background-image: -webkit-linear-gradient(left, #f00, #ff2b00, #f50, #ff8000, #fa0, #ffd500, #ff0, #d4ff00, #af0, #80ff00, #5f0, #2bff00, #0f0, #00ff2a, #0f5, #00ff80, #0fa, #00ffd5, #0ff, #00d5ff, #0af, #0080ff, #05f, #002aff, #00f, #2b00ff, #50f, #8000ff, #a0f, #d400ff, #f0f, #ff00d4, #f0a, #ff0080, #f05, #ff002b, #f00);
-	color: transparent;
-	animation: animatedBackground 5s linear infinite;
+	animation: rainbow 5s linear infinite;
 }
 
-@keyframes animatedBackground {
-	0% { background-position: left center }
-	100% { background-position: -200% center }
+@keyframes rainbow {
+	from { background-position: left center }
+	to { background-position: -200% center }
 }
 
-.animated_fire {
+.animated-fire {
 	text-align: center;
 	background-size: 100% 200%;
 	background-image: -webkit-linear-gradient(top, #f00, #ff2b00, #f50, #ff8000, #fa0, #ffd500, #ff0, #ffd500, #fa0, #ff8000, #f50, #ff2b00, #f00);
-	color: transparent;
-	animation: animatedBackground2 5s linear infinite;
+	animation: fire 5s linear infinite;
 }
 
-@keyframes animatedBackground2 {
-	0% { background-position: center top }
-	100% { background-position: center 200% }
+@keyframes fire {
+	from { background-position: center top }
+	to { background-position: center 200% }
+}
+
+:root {
+	--breathe-color: 0, 0, 0;
+}
+
+.animated-breathe {
+	text-align: center;
+	background-color: var(--breathe-color);
+	animation: breathe 2s infinite alternate ease-out
+}
+
+@keyframes breathe {
+	from { background-color: rgba(var(--breathe-color), 0.2); }
+	to { background-color: rgba(var(--breathe-color), 1.0); }
 }
