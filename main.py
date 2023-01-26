@@ -25,21 +25,21 @@ def read_file_in_chunks(file, chunk_size = 1024):
             break
         else:
             yield chunk
-    
-animation_task = None
 
 def cancel_animation_task():
-    
-    global animation_task
+
+    global animation_name, animation_task
     if animation_task is not None:
         animation_task.cancel()
+        animation_name = ''
 
-def run_animation_task(task):
+def run_animation_task(name):
 
-    global animation_task
-    if animation_task is not None:
-        animation_task.cancel()
-    animation_task = asyncio.create_task(task())
+    global animation_name, animation_task, animation_map
+
+    cancel_animation_task()
+    animation_name = name
+    animation_task = asyncio.create_task(animation_map[name]())
 
 shutdown_timer = Timer(-1)
 shutdown_timer_remaining_seconds = 0
@@ -51,14 +51,17 @@ def shutdown_timer_callback(timer):
     if (shutdown_timer_remaining_seconds == 0):
         asyncio.create_task(shutdown())
 
+color_change_evt = asyncio.Event()
+
+# -----------------------------------------------------------------------------
+# tasks
+
 async def shutdown():
 
     global shutdown_timer
     cancel_animation_task()
     rgbled.strip_set(0, 0, 0)
-
-# -----------------------------------------------------------------------------
-# tasks
+    shutdown_timer.deinit()
 
 async def blink(led, period_s):
 
@@ -67,6 +70,16 @@ async def blink(led, period_s):
         await asyncio.sleep(period_s)
         led.off()
         await asyncio.sleep(period_s)
+
+async def color_animation():
+
+    global color_change_evt
+
+    while True:
+        color = rgbled.get_next_color()
+        rgbled.strip_set_smooth(color[0], color[1], color[2])
+        await color_change_evt.wait()
+        color_change_evt.clear()
 
 async def rainbow_animation():
 
@@ -81,14 +94,29 @@ async def fire_animation():
         await asyncio.sleep(random.randint(10, 50) / 1000)
 
 async def breathe_animation():
-    
-    color = rgbled.strip_get()
+
+    global color_change_evt
+
+    color = rgbled.get_color()
     rgbled.strip_breathe_setup(color[0], color[1], color[2])
-    
+
     while True:
+        if (color_change_evt.is_set()):
+            color_change_evt.clear()
+            color = rgbled.get_next_color()
+            rgbled.strip_breathe_setup(color[0], color[1], color[2])
+
         rgbled.strip_breathe()
         await asyncio.sleep(0.01)
 
+animation_name = 'color'
+animation_task = None
+animation_map = {
+    'color': color_animation,
+    'breathe': breathe_animation,
+    'fire': fire_animation,
+    'rainbow': rainbow_animation
+}
 
 # -----------------------------------------------------------------------------
 # http handlers
@@ -127,11 +155,15 @@ async def handle_css_styles(conn, body):
 
     await handle_http_file(conn, 'styles.css', 'text/css')
 
-@httpserver.handle('GET', '/rgb')
-async def handle_get_rgb(conn, body):
+@httpserver.handle('GET', '/state')
+async def handle_get_state(conn, body):
 
-    rgb = rgbled.strip_get()
-    json_str = json.dumps({'r':rgb[0],'g':rgb[1],'b':rgb[2]})
+    global shutdown_timer_remaining_seconds, animation
+
+    color = rgbled.get_color()
+    timer = shutdown_timer_remaining_seconds
+    effect = animation_name
+    json_str = json.dumps({'color':{'r':color[0],'g':color[1],'b':color[2]}, 'timer':timer, 'effect':effect})
 
     headers = {
         'Content-Type': 'application/json',
@@ -140,12 +172,27 @@ async def handle_get_rgb(conn, body):
     conn.write(httpserver.create_header(headers, 200))
     conn.write(json_str)
 
-@httpserver.handle('POST', '/rgb')
-async def handle_post_rgb(conn, body):
+@httpserver.handle('POST', '/color')
+async def handle_post_color(conn, body):
 
-    cancel_animation_task()
+    global color_change_evt
+
     json_rgb = json.loads(body)
-    rgbled.strip_set_smooth(json_rgb['r'], json_rgb['g'], json_rgb['b'])
+    rgbled.set_next_color(json_rgb['r'], json_rgb['g'], json_rgb['b'])
+    color_change_evt.set()
+
+    headers = {
+        'ETag': '\"' + str(body) + '\"'
+    }
+    conn.write(httpserver.create_header(headers, 204))
+
+@httpserver.handle('POST', '/effect')
+async def handle_post_effect(conn, body):
+
+    effect = json.loads(body)['effect']
+
+    if (effect != animation_name):
+        run_animation_task(effect)
 
     headers = {
         'ETag': '\"' + str(body) + '\"'
@@ -170,54 +217,11 @@ async def handle_post_timer(conn, body):
     }
     conn.write(httpserver.create_header(headers, 204))
 
-@httpserver.handle('GET', '/timer')
-async def handle_get_timer(conn, body):
-
-    global shutdown_timer_remaining_seconds
-    json_str = json.dumps({'seconds':shutdown_timer_remaining_seconds})
-
-    headers = {
-        'Content-Type': 'application/json',
-        'Content-Length': str(len(json_str))
-    }
-    conn.write(httpserver.create_header(headers, 200))
-    conn.write(json_str)
-
-@httpserver.handle('POST', '/rainbow')
-async def handle_rainbow(conn, body):
-
-    run_animation_task(rainbow_animation)
-
-    headers = {
-        'ETag': '\"' + str(body) + '\"'
-    }
-    conn.write(httpserver.create_header(headers, 204))
-
-@httpserver.handle('POST', '/fire')
-async def handle_fire(conn, body):
-
-    run_animation_task(fire_animation)
-
-    headers = {
-        'ETag': '\"' + str(body) + '\"'
-    }
-    conn.write(httpserver.create_header(headers, 204))
-
-@httpserver.handle('POST', '/breathe')
-async def handle_breathe(conn, body):
-        
-    run_animation_task(breathe_animation)
-
-    headers = {
-        'ETag': '\"' + str(body) + '\"'
-    }
-    conn.write(httpserver.create_header(headers, 204))
-
 @httpserver.not_found()
 async def handle_not_found(conn, body):
-    
+
     await handle_http_file(conn, '404.html', 'text/html', 404)
-    
+
 # -----------------------------------------------------------------------------
 # 'main'
 
@@ -247,6 +251,7 @@ async def main():
     # server started
     blink_task.cancel()
     status_led.on()
+    run_animation_task('color')
 
     while True:
         await asyncio.sleep(1)

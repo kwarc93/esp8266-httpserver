@@ -11,40 +11,41 @@ window.onload = function() {
 	{
 		borderWidth: 2,
 		borderColor: "#d3d3d3",
-		wheelLightness: false, 
+		wheelLightness: false,
 	})
-	
+
+	colorPicker.on('color:change',
+	function(color) {
+		setEffectBtnColor(color)
+	});
+
 	colorPicker.on("input:end",
 	function(color) {
-		document.documentElement.style.setProperty("--breathe-color", color.rgbString.slice(4, -1))
-		fetch("/rgb", {
+		fetch("/color", {
 			method: "POST",
 			headers: {"Content-Type": "application/json"},
 			body: JSON.stringify(color.rgb)
-	  	})
+		})
 	})
-	
-	// Update the picker wheel
-	fetch("/rgb")
+
+	// Get the app state from server
+	// Example response: {"color":{"r":0,"g":0,"b":0},"timer":333,"effect":"fire"}
+	fetch("/state")
 	.then((response) => response.json())
 	.then((data) => {
-		colorPicker.color.set(data)
-		document.documentElement.style.setProperty("--breathe-color", colorPicker.color.rgbString.slice(4, -1))
+		colorPicker.color.set(data.color)
+		toggleEffectBtn(data.effect)
+		setEffectBtnColor(colorPicker.color)
+		serverTimerSeconds = data.timer
+		timerHandler()
 	})
-	
+
 	// Update the shut down timer
 	var timerValue = document.getElementById("timer-value")
 	var sliderInput = document.getElementById("timer-slider")
 
 	timerValue.textContent = sliderInput.value
-	sliderInput.addEventListener("input", (event) => {timerValue.textContent = event.target.value})
-
-	fetch("/timer")
-	.then((response) => response.json())
-	.then((data) => {
-		serverTimerSeconds = data.seconds
-		timerHandler()
-	})
+	sliderInput.addEventListener("input", (event) => { timerValue.textContent = event.target.value })
 }
 
 window.addEventListener("orientationchange",
@@ -53,10 +54,31 @@ function ()
 	calcPageLook()
 });
 
-function runEffect(effect) {
-	fetch("/" + effect, {
+function setEffectBtnColor(color) {
+	document.getElementById("ebtn-color").style.backgroundColor = color.hexString
+	document.documentElement.style.setProperty("--breathe-color", color.rgbString.slice(4, -1))
+}
+
+function toggleEffectBtn(effectName) {
+	// Simulate radio button behavior
+	let btnPressedClass = "effect-button-pressed"
+	let btnId = "ebtn-" + effectName
+	let btns = document.getElementsByTagName("button")
+	for (let i = 0; i < btns.length; i++) {
+		if (btns[i].classList.contains(btnPressedClass)) {
+			btns[i].classList.toggle(btnPressedClass)
+		}
+	}
+	document.getElementById(btnId).classList.toggle(btnPressedClass)
+}
+
+function runEffect(effectName) {
+	toggleEffectBtn(effectName)
+
+	fetch("/effect", {
 		method: "POST",
-		headers: {"Content-Length": 0}
+		headers: {"Content-Type": "application/json"},
+		body: JSON.stringify({effect: effectName})
 	})
 }
 
@@ -78,15 +100,15 @@ function timerHandler() {
 
 	function setTimerOnServer(timerValueSeconds) {
 		fetch("/timer", {
-  			method: "POST",
-  			headers: {"Content-Type": "application/json"},
-  			body: JSON.stringify({seconds: timerValueSeconds})
+			method: "POST",
+			headers: {"Content-Type": "application/json"},
+			body: JSON.stringify({seconds: timerValueSeconds})
 		})
 	}
 
 	function intervalHandler() {
 		const remainingTimeSeconds = Math.round((shutDownDate - Date.now()) / 1000)
-		slider.value = Math.round(remainingTimeSeconds / 60)
+		slider.value = Math.ceil(remainingTimeSeconds / 60)
 		time.textContent = slider.value
 
 		if (remainingTimeSeconds <= 0) {
@@ -132,23 +154,13 @@ function calcPageLook() {
 	if (!isMobileDevice) {
 		return
 	}
-	
+
 	const orientation = (screen.orientation || {}).type || screen.mozOrientation || screen.msOrientation
 	const oriLandscape = orientation.startsWith("landscape")
 
-	// "Lock" the page look to portrait
 	if (oriLandscape) {
-		document.body.setAttribute("style",
-		"transform: rotate(-90deg) translate(-50%, -50%);\
-		transform-origin: left top;\
-		top: 50%;\
-		left: 50%;\
-		");
+		document.body.setAttribute("style", "height: 100vh;");
 	} else {
-		document.body.setAttribute("style",
-		"transform: translate(-50%, -50%);\
-		top: 50%;\
-		left: 50%;\
-		");
+		document.body.setAttribute("style", "height: auto;");
 	}
 }
