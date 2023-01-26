@@ -21,7 +21,7 @@ def _hsv2rgb(h, s, v):
     k = lambda n: math.fmod((n + h / 60.0), 6)
     f = lambda n: v - v * s * max(0, min(min(k(n), 4 - k(n)), 1))
 
-    return int(f(5) * 255), int(f(3) * 255), int(f(1) * 255)
+    return round(f(5) * 255), round(f(3) * 255), round(f(1) * 255)
 
 def _rgb2hsv(r, g, b):
 
@@ -199,7 +199,7 @@ def strip_breathe_setup(r, g, b, intensity = 0.5):
     _breathe_hsv = _rgb2hsv(r, g, b)
     _breathe_max_value = int(_breathe_hsv[2] * 500)
     _breathe_min_value = int((1 - intensity) * _breathe_max_value)
-    _breathe_value = _breathe_max_value
+    _breathe_value = _breathe_min_value
     _breathe_step = -1
 
 def strip_breathe():
@@ -211,12 +211,12 @@ def strip_breathe():
     drv = _led_strip_drv
     cie = _cie_lut_8b
 
-    _breathe_value += _breathe_step
-
     if (_breathe_value <= _breathe_min_value):
         _breathe_step  = 2
     elif (_breathe_value >= _breathe_max_value):
         _breathe_step = -1
+
+    _breathe_value += _breathe_step
 
     (r, g, b) = _hsv2rgb(_breathe_hsv[0], _breathe_hsv[1], _breathe_value / 500)
 

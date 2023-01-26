@@ -59,10 +59,10 @@ function setEffectBtnColor(color) {
 	document.documentElement.style.setProperty("--breathe-color", color.rgbString.slice(4, -1))
 }
 
-function toggleEffectBtn(effect) {
-	// Simulate radio button effect
+function toggleEffectBtn(effectName) {
+	// Simulate radio button behavior
 	let btnPressedClass = "effect-button-pressed"
-	let btnId = "ebtn-" + effect
+	let btnId = "ebtn-" + effectName
 	let btns = document.getElementsByTagName("button")
 	for (let i = 0; i < btns.length; i++) {
 		if (btns[i].classList.contains(btnPressedClass)) {
