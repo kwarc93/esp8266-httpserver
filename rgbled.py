@@ -17,7 +17,7 @@ def _hsv2rgb(h, s, v):
 
     if h > 360.0 or h < 0.0 or s > 1.0 or s < 0.0 or v > 1.0 or v < 0.0:
         return None
-    
+
     k = lambda n: math.fmod((n + h / 60.0), 6)
     f = lambda n: v - v * s * max(0, min(min(k(n), 4 - k(n)), 1))
 
@@ -50,6 +50,22 @@ def _rgb2hsv(r, g, b):
 
     return h * 360.0, s, v
 
+_rgb_next_color = bytearray(3)
+_rgb_curr_color = bytearray(3)
+
+def get_color():
+
+    return _rgb_curr_color
+
+def get_next_color():
+
+    return _rgb_next_color
+
+def set_next_color(r, g, b):
+
+    global _rgb_next_color
+    _rgb_next_color = bytearray((r, g, b))
+
 # -----------------------------------------------------------------------------
 # RGB PWM LED
 
@@ -62,23 +78,25 @@ def init(rpin, gpin, bpin):
     global _rpwm, _gpwm, _bpwm, _cie_lut_10b
 
     _cie_lut_10b = pwm_lightness.get_pwm_table(1023, 255)
-    
+
     _rpwm = PWM(Pin(rpin), freq=500, duty=0)
     _gpwm = PWM(Pin(gpin), freq=500, duty=0)
     _bpwm = PWM(Pin(bpin), freq=500, duty=0)
 
 def set(r, g, b):
 
+    global _rgb_curr_color
+
     cie = _cie_lut_10b
     _rpwm.duty(cie[r])
     _gpwm.duty(cie[g])
     _bpwm.duty(cie[b])
+    _rgb_curr_color = bytearray((r, g, b))
 
 # -----------------------------------------------------------------------------
 # RGB LED strip
 
 _led_strip_drv = None
-_led_strip_color = bytearray(3)
 
 def strip_init(pin, leds):
 
@@ -95,22 +113,19 @@ def strip_set(r, g, b):
     drv = _led_strip_drv
     cie = _cie_lut_8b
 
-    global _led_strip_color
-    _led_strip_color = bytearray((r, g, b))
+    global _rgb_curr_color
 
     drv.fill((cie[r], cie[g], cie[b]))
     drv.write()
-
-def strip_get():
-    return _led_strip_color
+    _rgb_curr_color = bytearray((r, g, b))
 
 def strip_set_smooth(r, g, b):
 
     drv = _led_strip_drv
     cie = _cie_lut_8b
 
-    global _led_strip_color
-    prev_color = _led_strip_color
+    global _rgb_curr_color
+    prev_color = _rgb_curr_color
     new_color = bytearray((r, g, b))
 
     if new_color == prev_color:
@@ -119,7 +134,7 @@ def strip_set_smooth(r, g, b):
 
     diff = (new_color[0] - prev_color[0], new_color[1] - prev_color[1], new_color[2] - prev_color[2])
     length = math.sqrt(diff[0] ** 2 + diff[1] ** 2 + diff[2] ** 2)
-    
+
     cosb_sina = diff[0] / length
     cosb_cosa = diff[1] / length
     sinb = diff[2] / length
@@ -131,7 +146,7 @@ def strip_set_smooth(r, g, b):
         new_color[2] = int(prev_color[2] + round(step * sinb))
         drv.fill((cie[new_color[0]], cie[new_color[1]], cie[new_color[2]]))
         drv.write()
-    _led_strip_color = new_color
+    _rgb_curr_color = new_color
 
 # -----------------------------------------------------------------------------
 # RGB LED strip effects
@@ -144,9 +159,9 @@ def strip_rainbow():
     drv = _led_strip_drv
     cie = _cie_lut_8b
     leds = range(drv.n)
-    
+
     hue_step = 360 / drv.n
-    
+
     for led in leds:
         # avg_hue = (hue_offset + hue_step * (2 * led + 1) / 2) % 360
         avg_hue = (_raibow_hue + hue_step * led) % 360
@@ -155,7 +170,7 @@ def strip_rainbow():
     drv.write()
 
     _raibow_hue += 2
-    
+
 def strip_fire():
 
     drv = _led_strip_drv
@@ -177,12 +192,10 @@ _breathe_hsv = None
 
 def strip_breathe_setup(r, g, b, intensity = 0.5):
 
-    global _breathe_max_value
-    global _breathe_min_value
-    global _breathe_step
-    global _breathe_hsv
-    global _breathe_value
+    global _rgb_curr_color
+    global _breathe_max_value, _breathe_min_value, _breathe_step, _breathe_hsv, _breathe_value
 
+    _rgb_curr_color = bytearray((r, g, b))
     _breathe_hsv = _rgb2hsv(r, g, b)
     _breathe_max_value = int(_breathe_hsv[2] * 500)
     _breathe_min_value = int((1 - intensity) * _breathe_max_value)

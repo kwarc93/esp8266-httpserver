@@ -1,4 +1,9 @@
+:root {
+	--breathe-color: 255, 255, 255;
+}
+
 .centered {
+	height: auto;
 	position: absolute;
 	top: 50%;
 	left: 50%;
@@ -9,14 +14,20 @@
 }
 
 .effect-button {
-	border: 2px solid lightgray;
+	border: 3px solid lightgray;
 	padding: 24px;
 	border-radius: 50%;
 	cursor: pointer;
 }
 
-.effect-button:hover {
-	border: 2px solid dodgerblue;
+.effect-button-pressed {
+	border-color: dodgerblue;
+}
+
+@media (hover: hover) {
+	effect-button:hover {
+		border: 2px solid dodgerblue;
+	}
 }
 
 .timer-button {
@@ -61,11 +72,10 @@
 	flex-direction: row;
 	justify-content: space-between;
 	writing-mode: horizontal-tb;
-
 }
 
 .timer-option {
-  padding: 0;
+	padding: 0;
 }
 
 .animated-rainbow {
@@ -90,10 +100,6 @@
 @keyframes fire {
 	from { background-position: center top }
 	to { background-position: center 200% }
-}
-
-:root {
-	--breathe-color: 0, 0, 0;
 }
 
 .animated-breathe {
