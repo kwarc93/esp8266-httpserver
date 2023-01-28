@@ -14,14 +14,31 @@ _cie_lut_8b = None
 # color transformations
 
 def _hsv2rgb(h, s, v):
+    # This version below is ~3x slower but ~3x shorter ;)
+    # k = lambda n: math.fmod((n + h / 60.0), 6)
+    # f = lambda n: v - v * s * max(0, min(min(k(n), 4 - k(n)), 1))
+    # return round(f(5) * 255), round(f(3) * 255), round(f(1) * 255)
 
-    if h > 360.0 or h < 0.0 or s > 1.0 or s < 0.0 or v > 1.0 or v < 0.0:
-        return None
-
-    k = lambda n: math.fmod((n + h / 60.0), 6)
-    f = lambda n: v - v * s * max(0, min(min(k(n), 4 - k(n)), 1))
-
-    return round(f(5) * 255), round(f(3) * 255), round(f(1) * 255)
+    c = v * s
+    hp = h / 60.0
+    x = c * (1 - math.fabs(math.fmod(hp, 2) - 1))
+    m = v - c
+    x = round(255 * (x + m))
+    c = round(255 * (c + m))
+    m = round(255 * m)
+    hp = int(hp) % 6
+    if hp == 0:
+        return c, x, m
+    elif hp == 1:
+        return x, c, m
+    elif hp == 2:
+        return m, c, x
+    elif hp == 3:
+        return m, x, c
+    elif hp == 4:
+        return x, m, c
+    elif hp == 5:
+        return c, m, x
 
 def _rgb2hsv(r, g, b):
 
@@ -163,13 +180,11 @@ def strip_rainbow():
     hue_step = 360 / drv.n
 
     for led in leds:
-        # avg_hue = (hue_offset + hue_step * (2 * led + 1) / 2) % 360
-        avg_hue = (_raibow_hue + hue_step * led) % 360
-        (r, g, b) = _hsv2rgb(avg_hue, 1.0, 1.0)
-        drv[led] = (cie[r], cie[g], cie[b])
+        led_hue = (_raibow_hue + hue_step * led) % 360
+        drv[led] = tuple(cie[x] for x in _hsv2rgb(led_hue, 1.0, 1.0))
     drv.write()
 
-    _raibow_hue += 2
+    _raibow_hue += 1
 
 def strip_fire():
 
@@ -190,17 +205,17 @@ _breathe_min_value = None
 _breathe_step = None
 _breathe_hsv = None
 
-def strip_breathe_setup(r, g, b, intensity = 0.5):
+def strip_breathe_setup(r, g, b, intensity = 0.8):
 
     global _rgb_curr_color
     global _breathe_max_value, _breathe_min_value, _breathe_step, _breathe_hsv, _breathe_value
 
     _rgb_curr_color = bytearray((r, g, b))
     _breathe_hsv = _rgb2hsv(r, g, b)
-    _breathe_max_value = int(_breathe_hsv[2] * 500)
-    _breathe_min_value = int((1 - intensity) * _breathe_max_value)
+    _breathe_max_value = _breathe_hsv[2]
+    _breathe_min_value = (1 - intensity) * _breathe_max_value
     _breathe_value = _breathe_min_value
-    _breathe_step = -1
+    _breathe_step = 0.005 * _breathe_max_value
 
 def strip_breathe():
 
@@ -209,16 +224,14 @@ def strip_breathe():
     global _breathe_value
 
     drv = _led_strip_drv
-    cie = _cie_lut_8b
 
     if (_breathe_value <= _breathe_min_value):
-        _breathe_step  = 2
-    elif (_breathe_value >= _breathe_max_value):
-        _breathe_step = -1
+        _breathe_step  = 0.005 * _breathe_max_value
+    elif (_breathe_value >= _breathe_max_value - _breathe_step):
+        _breathe_step = -0.02 * _breathe_min_value
 
     _breathe_value += _breathe_step
 
-    (r, g, b) = _hsv2rgb(_breathe_hsv[0], _breathe_hsv[1], _breathe_value / 500)
-
-    drv.fill((cie[r], cie[g], cie[b]))
+    # no CIE LUT to minimize flicker at low light intensity
+    drv.fill(_hsv2rgb(_breathe_hsv[0], _breathe_hsv[1], _breathe_value))
     drv.write()
