@@ -119,7 +119,7 @@ def strip_init(pin, leds):
 
     global _led_strip_drv, _cie_lut_8b
 
-    _cie_lut_8b = pwm_lightness.get_pwm_table(255, 255)
+    _cie_lut_8b = pwm_lightness.get_pwm_table(255, 255, 2)
 
     _led_strip_drv = NeoPixel(Pin(pin, Pin.OUT), leds)
     _led_strip_drv.fill((0, 0, 0))
@@ -128,7 +128,7 @@ def strip_init(pin, leds):
 def strip_set(r, g, b):
 
     drv = _led_strip_drv
-    cie = _cie_lut_8b
+    cie = _cie_lut_8b[0]
 
     global _rgb_curr_color
 
@@ -139,7 +139,7 @@ def strip_set(r, g, b):
 def strip_set_smooth(r, g, b):
 
     drv = _led_strip_drv
-    cie = _cie_lut_8b
+    cie = _cie_lut_8b[0]
 
     global _rgb_curr_color
     prev_color = _rgb_curr_color
@@ -174,7 +174,7 @@ def strip_rainbow():
 
     global _raibow_hue
     drv = _led_strip_drv
-    cie = _cie_lut_8b
+    cie = _cie_lut_8b[0]
     leds = range(drv.n)
 
     hue_step = 360 / drv.n
@@ -189,7 +189,7 @@ def strip_rainbow():
 def strip_fire():
 
     drv = _led_strip_drv
-    cie = _cie_lut_8b
+    cie = _cie_lut_8b[0]
     leds = range(drv.n)
 
     # color of fire
@@ -197,15 +197,17 @@ def strip_fire():
 
     for led in leds:
         flicker = random.randint(0, 50)
-        drv[led] = tuple([cie[x - flicker] if x-flicker >= 0 else 0 for x in rgb])
+        drv[led] = tuple(cie[x - flicker] if x-flicker >= 0 else 0 for x in rgb)
     drv.write()
 
 _breathe_max_value = None
 _breathe_min_value = None
 _breathe_step = None
+_breathe_step_value = 0.002
 _breathe_hsv = None
+_breathe_dither = 0
 
-def strip_breathe_setup(r, g, b, intensity = 0.8):
+def strip_breathe_setup(r, g, b, intensity = 0.5):
 
     global _rgb_curr_color
     global _breathe_max_value, _breathe_min_value, _breathe_step, _breathe_hsv, _breathe_value
@@ -215,23 +217,26 @@ def strip_breathe_setup(r, g, b, intensity = 0.8):
     _breathe_max_value = _breathe_hsv[2]
     _breathe_min_value = (1 - intensity) * _breathe_max_value
     _breathe_value = _breathe_min_value
-    _breathe_step = 0.005 * _breathe_max_value
+    _breathe_step = _breathe_step_value * _breathe_max_value
 
 def strip_breathe():
 
     global _breathe_step
     global _breathe_hsv
     global _breathe_value
+    global _breathe_dither
 
     drv = _led_strip_drv
+    cie = _cie_lut_8b
 
     if (_breathe_value <= _breathe_min_value):
-        _breathe_step  = 0.005 * _breathe_max_value
+        _breathe_step  = _breathe_step_value * _breathe_max_value
     elif (_breathe_value >= _breathe_max_value - _breathe_step):
-        _breathe_step = -0.02 * _breathe_min_value
+        _breathe_step = -_breathe_step_value * _breathe_min_value
 
     _breathe_value += _breathe_step
+    _breathe_dither = 0 if _breathe_dither == 3 else _breathe_dither + 1
 
-    # no CIE LUT to minimize flicker at low light intensity
-    drv.fill(_hsv2rgb(_breathe_hsv[0], _breathe_hsv[1], _breathe_value))
+    # using temporal dithering to minimize flicker at low light intensity
+    drv.fill(tuple(cie[_breathe_dither][x] for x in _hsv2rgb(_breathe_hsv[0], _breathe_hsv[1], _breathe_value)))
     drv.write()

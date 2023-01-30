@@ -107,7 +107,7 @@ async def breathe_animation():
             rgbled.strip_breathe_setup(color[0], color[1], color[2])
 
         rgbled.strip_breathe()
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.001)
 
 animation_name = 'color'
 animation_task = None

@@ -1,4 +1,5 @@
 # Copyright 2020 Gregory P. Smith
+# Copyright 2023 Kamil Worek
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,8 +27,21 @@ Usage:
 
 Returns a table mapping integer values 0-255 to brightness adjusted values
 in the range 0-42.  Parameters control both the table size (range of input
-values) and the range of output values.  All integers.  Tables are cached
+values) and the range of output values.  All integers. Tables are cached
 to avoid recomputation.
+
+>>> pwm_lightness.get_pwm_table(255, 255, 2)
+
+Returns a tuple of 4 (2^dither_bits) tables with dithered values. Te third
+parameter sets number of dithering bits (default is 0 - dithering disabled).
+To make temporal dithering work, cycle through a tuple within a loop, e.g:
+
+>>> pwm = pwm_lightness.get_pwm_table(255, 255, 2)
+>>> dither_step = 0
+>>> while (True):
+>>>     new_brightness = pwm[dither_step][brightness]
+>>>     dither_step = 0 if dither_step == 3 else dither_step + 1
+
 """
 
 try:
@@ -39,20 +53,45 @@ _pwm_tables = {}  # Our cache.
 
 
 def get_pwm_table(max_output: int,
-                  max_input: int = 255) -> 'Sequence[int]':
+                  max_input: int = 255, dither_bits: int = 0) -> 'Sequence[int] or Sequence[int][int]':
     """Returns a table mapping 0..max_input to int PWM values.
+       If dither_bits > 0, then returns a tuple of <2^dither_bits> tables used for temporal dithering.
+       Temporal dithering is enabled only for 8-bit PWM
 
     Computed upon the first call with given value, cached thereafter.
     """
     assert max_output > 0
     assert max_input > 0
-    table = _pwm_tables.get((max_output, max_input))
+    assert dither_bits <= 8 and dither_bits >= 0
+
+    table = _pwm_tables.get((max_output, max_input, dither_bits))
     if table:
         return table
-    value_gen = (round(_cie1931(l_star/max_input) * max_output)
-                 for l_star in range(max_input+1))
-    table = bytes(value_gen) if max_output <= 255 else tuple(value_gen)
-    _pwm_tables[(max_output, max_input)] = table
+
+    if dither_bits > 0 and max_output == 255:
+        table = [None] * (1 << dither_bits)
+
+        for dither_step in range(1 << dither_bits):
+            dither_value = 0
+            # reverse bits to minimize flickering
+            din = 1 << dither_bits
+            dout = 1
+            for i in range(dither_bits):
+                din >>= 1
+                if dither_step & din:
+                    dither_value |= dout
+                dout <<= 1
+
+            dither_value = dither_value << (8 - dither_bits)
+            value_gen = (min(255, (round(_cie1931(l_star/max_input) * max_output * 256) + dither_value) >> 8)
+                        for l_star in range(max_input+1))
+            table[dither_step] = bytes(value_gen) if max_output <= 255 else tuple(value_gen)
+    else:
+        value_gen = (round(_cie1931(l_star/max_input) * max_output)
+                    for l_star in range(max_input+1))
+
+        table = bytes(value_gen) if max_output <= 255 else tuple(value_gen)
+    _pwm_tables[(max_output, max_input, dither_bits)] = table
     return table
 
 
