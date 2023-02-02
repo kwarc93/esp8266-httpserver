@@ -229,9 +229,9 @@ def strip_breathe():
     drv = _led_strip_drv
     cie = _cie_lut_8b
 
-    if (_breathe_value <= _breathe_min_value):
+    if _breathe_value <= _breathe_min_value:
         _breathe_step  = _breathe_step_value * _breathe_max_value
-    elif (_breathe_value >= _breathe_max_value - _breathe_step):
+    elif _breathe_value >= _breathe_max_value - _breathe_step:
         _breathe_step = -_breathe_step_value * _breathe_min_value
 
     _breathe_value += _breathe_step

@@ -15,6 +15,14 @@ from machine import Timer
 # -----------------------------------------------------------------------------
 # helpers
 
+def set_global_exception():
+    def handle_exception(loop, context):
+        import sys
+        sys.print_exception(context['exception'])
+        sys.exit()
+    loop = asyncio.get_event_loop()
+    loop.set_exception_handler(handle_exception)
+
 def get_file_size(file):
     return os.stat(file)[6]
 
@@ -26,18 +34,16 @@ def read_file_in_chunks(file, chunk_size = 1024):
         else:
             yield chunk
 
-def cancel_animation_task():
-
-    global animation_name, animation_task
-    if animation_task is not None:
-        animation_task.cancel()
-        animation_name = ''
-
 def run_animation_task(name):
 
     global animation_name, animation_task, animation_map
 
-    cancel_animation_task()
+    if name == animation_name or name not in animation_map:
+        return
+
+    if animation_task:
+        animation_task.cancel()
+
     animation_name = name
     animation_task = asyncio.create_task(animation_map[name]())
 
@@ -48,20 +54,22 @@ def shutdown_timer_callback(timer):
 
     global shutdown_timer_remaining_seconds
     shutdown_timer_remaining_seconds -= 1
-    if (shutdown_timer_remaining_seconds == 0):
+    if shutdown_timer_remaining_seconds == 0:
         asyncio.create_task(shutdown())
-
-color_change_evt = asyncio.Event()
+        timer.deinit()
 
 # -----------------------------------------------------------------------------
 # tasks
 
+color_change_evt = asyncio.Event()
+
 async def shutdown():
 
-    global shutdown_timer
-    cancel_animation_task()
-    rgbled.strip_set(0, 0, 0)
-    shutdown_timer.deinit()
+    global color_change_evt
+
+    rgbled.set_next_color(0, 0, 0)
+    color_change_evt.set()
+    run_animation_task('color')
 
 async def blink(led, period_s):
 
@@ -75,11 +83,14 @@ async def color_animation():
 
     global color_change_evt
 
+    # trigger the task
+    color_change_evt.set()
+
     while True:
-        color = rgbled.get_next_color()
-        rgbled.strip_set_smooth(color[0], color[1], color[2])
         await color_change_evt.wait()
         color_change_evt.clear()
+        color = rgbled.get_next_color()
+        rgbled.strip_set_smooth(color[0], color[1], color[2])
 
 async def rainbow_animation():
 
@@ -97,11 +108,11 @@ async def breathe_animation():
 
     global color_change_evt
 
-    color = rgbled.get_color()
-    rgbled.strip_breathe_setup(color[0], color[1], color[2])
+    # trigger the task
+    color_change_evt.set()
 
     while True:
-        if (color_change_evt.is_set()):
+        if color_change_evt.is_set():
             color_change_evt.clear()
             color = rgbled.get_next_color()
             rgbled.strip_breathe_setup(color[0], color[1], color[2])
@@ -109,7 +120,7 @@ async def breathe_animation():
         rgbled.strip_breathe()
         await asyncio.sleep(0.001)
 
-animation_name = 'color'
+animation_name = ''
 animation_task = None
 animation_map = {
     'color': color_animation,
@@ -190,9 +201,7 @@ async def handle_post_color(conn, body):
 async def handle_post_effect(conn, body):
 
     effect = json.loads(body)['effect']
-
-    if (effect != animation_name):
-        run_animation_task(effect)
+    run_animation_task(effect)
 
     headers = {
         'ETag': '\"' + str(body) + '\"'
@@ -207,7 +216,7 @@ async def handle_post_timer(conn, body):
 
     shutdown_timer_remaining_seconds = json.loads(body)['seconds']
 
-    if (shutdown_timer_remaining_seconds > 0):
+    if shutdown_timer_remaining_seconds > 0:
         shutdown_timer.init(period = 1000, mode=Timer.PERIODIC, callback = shutdown_timer_callback)
     else:
         shutdown_timer.deinit()
@@ -257,4 +266,7 @@ async def main():
         await asyncio.sleep(1)
 
 # Start the whole thing
-asyncio.run(main())
+try:
+    asyncio.run(main())
+except:
+    asyncio.new_event_loop()
